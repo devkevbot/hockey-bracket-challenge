@@ -18,13 +18,13 @@ datasource db {
 model Series {
   id    String @id @default(cuid())
   round Int
-  slug  String
+  slug  String @default(cuid())
 }
 
 model Prediction {
   id     String @id @default(cuid())
   userId String
-  slug   String
+  slug   String @default(cuid())
   score  String
 
   @@unique([userId, slug])
