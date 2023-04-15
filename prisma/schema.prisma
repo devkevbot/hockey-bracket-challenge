@@ -20,7 +20,6 @@ model Team {
   fullName   String  @unique
   shortName  String  @unique
   isHighSeed Boolean @default(false)
-  score      String
   seriesId   String
   series     Series  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
 
@@ -28,10 +27,9 @@ model Team {
 }
 
 model Series {
-  id        String   @id @default(cuid())
-  startDate DateTime
-  round     String
-  teams     Team[]
+  id    String @id @default(cuid())
+  round String
+  teams Team[]
 }
 
 model Prediction {

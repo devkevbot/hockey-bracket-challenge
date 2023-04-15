@@ -3,8 +3,54 @@ import Head from "next/head";
 import { signIn, useSession } from "next-auth/react";
 import { api } from "~/utils/api";
 import { type Prediction, type Series, type Team } from "@prisma/client";
+import { type InferGetServerSidePropsType } from "next";
 
-function Home() {
+export async function getServerSideProps() {
+  const response = await fetch(
+    "https://statsapi.web.nhl.com/api/v1/tournaments/playoffs?expand=round.series,schedule.game.seriesSummary&season=20222023"
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const data = await response.json();
+
+  return {
+    props: {
+      nhlPlayoffsDataByRound: data.rounds,
+    },
+  };
+}
+
+function Home(props: InferGetServerSidePropsType<typeof getServerSideProps>) {
+  console.log();
+
+  function getsSeriesInfo(roundNumber, highSeed, lowSeed) {
+    const round = props.nhlPlayoffsDataByRound.find(
+      (round) => round.number.toString() === roundNumber
+    );
+
+    const series = round.series.find((item) => {
+      return item.matchupTeams.some((t) => t.team.name === highSeed);
+    });
+
+    const highSeedScore = series.matchupTeams.find(
+      (t) => t.team.name === highSeed
+    )?.seriesRecord.wins;
+    const lowSeedScore = series.matchupTeams.find(
+      (t) => t.team.name === lowSeed
+    )?.seriesRecord.wins;
+
+    const currentGame = series.currentGame;
+
+    console.log({ highSeedScore, lowSeedScore, currentGame });
+
+    return {
+      highSeedScore,
+      lowSeedScore,
+      currentGame,
+    };
+  }
+
+  getsSeriesInfo("1", "Carolina Hurricanes", "New York Islanders");
+
   return (
     <>
       <Head>
@@ -23,7 +69,7 @@ function Home() {
           <h2 className="text-4xl font-bold tracking-tight text-black sm:text-[4rem]">
             2023 Edition
           </h2>
-          <ProtectedContent />
+          <ProtectedContent getSeriesInfo={getsSeriesInfo} />
         </div>
       </main>
     </>
@@ -32,7 +78,17 @@ function Home() {
 
 export default Home;
 
-function ProtectedContent() {
+type GetSeriesInfo = (
+  round: string,
+  highSeedTeamName: string,
+  lowSeedTeamName: string
+) => [number, number];
+
+type ProtectedContentProps = {
+  getSeriesInfo: GetSeriesInfo;
+};
+
+function ProtectedContent(props: ProtectedContentProps) {
   const { data: sessionData, status } = useSession();
   const { data: predictions } = api.prediction.getAll.useQuery();
 
@@ -51,14 +107,23 @@ function ProtectedContent() {
         </button>
       )}
 
-      {sessionData && <RoundGrid round="1" predictions={predictions} />}
+      {sessionData && (
+        <RoundGrid
+          round="1"
+          predictions={predictions}
+          getSeriesInfo={props.getSeriesInfo}
+        />
+      )}
     </div>
   );
 }
 
 type RoundKind = Pick<Series, "round">;
 
-type RoundGridProps = RoundKind & { predictions?: Prediction[] };
+type RoundGridProps = RoundKind & {
+  predictions?: Prediction[];
+  getSeriesInfo: GetSeriesInfo;
+};
 
 function RoundGrid(props: RoundGridProps) {
   const { data: series } = api.series.getAllByRound.useQuery({
@@ -79,9 +144,19 @@ function RoundGrid(props: RoundGridProps) {
           const userPredictedScore = props.predictions?.find(
             (p) => p.seriesId === series.id
           )?.score;
+          const highSeed = series.teams.find((t) => t.isHighSeed);
+          const lowSeed = series.teams.find((t) => t.id !== highSeed?.id);
+
+          const info = props.getSeriesInfo(
+            props.round,
+            highSeed?.fullName,
+            lowSeed?.fullName
+          );
+
           return (
             <SeriesCard
               {...series}
+              {...info}
               userPredictedScore={userPredictedScore}
               key={index}
             />
@@ -99,6 +174,25 @@ type SeriesProps = Series & {
   userPredictedScore?: ScoreKind;
 };
 
+const shortNameToColor: Record<string, string> = {
+  BOS: "bg-amber-400",
+  FLA: "bg-red-700",
+  CAR: "bg-red-600",
+  NYI: "bg-orange-600",
+  NJ: "bg-red-600",
+  NYR: "bg-blue-800",
+  TOR: "bg-blue-600",
+  TB: "bg-blue-700",
+  VGK: "bg-yellow-500",
+  WPG: "bg-blue-900",
+  EDM: "bg-orange-500",
+  LAK: "bg-black",
+  COL: "bg-red-950",
+  SEA: "bg-sky-300",
+  DAL: "bg-green-600",
+  MIN: "bg-green-800",
+};
+
 function SeriesCard(props: SeriesProps) {
   const defaultPrediction = "Choose an option";
 
@@ -112,7 +206,7 @@ function SeriesCard(props: SeriesProps) {
     mutation.mutate({ seriesId, score });
   }
 
-  const hasSeriesStarted = props.startDate <= new Date();
+  const hasSeriesStarted = false;
 
   const highSeed = props.teams.find((t) => t.isHighSeed);
   const lowSeed = props.teams.find((t) => t.id !== highSeed?.id);
@@ -121,47 +215,67 @@ function SeriesCard(props: SeriesProps) {
     return null;
   }
 
-  const seriesScore = `${highSeed.shortName} 0 - ${lowSeed.shortName} 0`;
+  const highScore = `${highSeed.shortName} ${props.highSeedScore}`;
+  const lowScore = `${lowSeed.shortName} ${props.lowSeedScore}`;
 
   return (
-    <>
-      <div className="flex flex-col items-center gap-4 rounded-md bg-gradient-to-tl from-sky-200 to-white p-4 drop-shadow-lg">
-        <div className="flex w-full flex-col gap-2 text-center">
-          <span className="text-xl font-semibold">{highSeed.fullName}</span>
+    <div className="flex transform flex-col items-center gap-4 rounded-md border-4 border-white bg-gradient-to-tl from-sky-200 to-white p-4 drop-shadow-lg duration-100 ease-in-out md:hover:scale-105 md:hover:border-black">
+      <div className="flex w-full flex-col gap-2 text-center">
+        <span className="text-xl font-semibold">{highSeed.fullName}</span>
 
-          <div className="flex w-full items-center">
-            <hr className="w-full border-2 border-black" />
-            <span className="px-2 font-bold">VS</span>
-            <hr className="w-full border-2 border-black" />
-          </div>
-
-          <span className="text-xl font-semibold">{lowSeed.fullName}</span>
+        <div className="flex w-full items-center">
+          <hr className="w-full border-2 border-black" />
+          <span className="px-2 font-bold">VS</span>
+          <hr className="w-full border-2 border-black" />
         </div>
 
-        <span className="w-full rounded-md bg-black px-4 py-2 text-center text-white">
-          {seriesScore}
-        </span>
-
-        <h3 className="-mb-2 text-xl font-semibold">Prediction</h3>
-        <select
-          className="w-full cursor-pointer rounded-md bg-black px-4 py-2 text-white"
-          value={prediction}
-          onChange={(event) => onChangePrediction(props.id, event.target.value)}
-          disabled={hasSeriesStarted}
-        >
-          <option disabled selected>
-            {defaultPrediction}
-          </option>
-          <option>4-0 {highSeed.shortName}</option>
-          <option>4-1 {highSeed.shortName}</option>
-          <option>4-2 {highSeed.shortName}</option>
-          <option>4-3 {highSeed.shortName}</option>
-          <option>4-0 {lowSeed.shortName}</option>
-          <option>4-1 {lowSeed.shortName} </option>
-          <option>4-2 {lowSeed.shortName} </option>
-          <option>4-3 {lowSeed.shortName} </option>
-        </select>
+        <span className="text-xl font-semibold">{lowSeed.fullName}</span>
       </div>
-    </>
+
+      <div className="w-full text-center">
+        {props.currentGame.seriesSummary.necessary && (
+          <span>{props.currentGame.seriesSummary.gameLabel}</span>
+        )}
+        <br />
+        <span>
+          {new Date(props.currentGame.seriesSummary.gameTime).toLocaleString()}
+        </span>
+      </div>
+
+      <div className="grid w-full grid-cols-2 rounded-md text-center text-lg font-semibold text-white">
+        <span
+          className={`rounded-bl-md rounded-tl-md border-b-2 border-l-2 border-t-2 ${
+            shortNameToColor[highSeed.shortName] || "bg-black"
+          } py-2`}
+        >
+          {highScore}
+        </span>
+        <span
+          className={`w-full rounded-br-md rounded-tr-md border-b-2 border-r-2 border-t-2 ${
+            shortNameToColor[lowSeed.shortName] || "bg-black"
+          } py-2`}
+        >
+          {lowScore}
+        </span>
+      </div>
+
+      <h3 className="-mb-2 text-xl font-semibold">Prediction</h3>
+      <select
+        className="w-full cursor-pointer rounded-md bg-black px-4 py-2 text-white"
+        value={prediction}
+        onChange={(event) => onChangePrediction(props.id, event.target.value)}
+        disabled={hasSeriesStarted}
+      >
+        <option disabled>{defaultPrediction}</option>
+        <option>4-0 {highSeed.shortName}</option>
+        <option>4-1 {highSeed.shortName}</option>
+        <option>4-2 {highSeed.shortName}</option>
+        <option>4-3 {highSeed.shortName}</option>
+        <option>4-0 {lowSeed.shortName}</option>
+        <option>4-1 {lowSeed.shortName} </option>
+        <option>4-2 {lowSeed.shortName} </option>
+        <option>4-3 {lowSeed.shortName} </option>
+      </select>
+    </div>
   );
 }
