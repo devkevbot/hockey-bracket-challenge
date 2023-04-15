@@ -9,7 +9,9 @@
     "lint": "next lint",
     "start": "next start",
     "db-seed": "cross-env NODE_ENV=development prisma db seed",
-    "db-studio": "prisma studio"
+    "db-studio": "prisma studio",
+    "db-proxy": "pscale connect hockey-bracket-challenge dev --port 3309",
+    "db-deploy-request": "pscale deploy-request create hockey-bracket-challenge dev"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
