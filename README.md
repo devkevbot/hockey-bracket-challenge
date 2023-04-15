@@ -1,28 +1,49 @@
-# Create T3 App
+# Hockey Bracket Challenge
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+A small project used to record my predictions for the 2023 NHL Playoffs. Available at https://hockey-bracket-challenge.vercel.app/
 
-## What's next? How do I make an app with this?
+---
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+## Guide
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+### Making predictions
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+1. Visit https://hockey-bracket-challenge.vercel.app/
+1. Click "Sign in" and sign in with your Discord account
+1. For each available series, select your prediction
 
-## Learn More
+### Prediction states
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+#### Editing
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
+Predictions can be edited up until Game 1 of a series starts.
 
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
+- **Editable**: Predicates are editable
+- **Locked in**: Predictions are no longer editable
 
-## How do I deploy this?
+#### Correctness
 
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+The correctness of a prediction is determined when either team in a series reaches 4 wins, the number of wins needed to win a best-of-seven series.
+
+- **Correct**: The prediction was exactly correct
+- **Incorrect**: The prediction was not exactly correct
+
+---
+
+## Sample Screenshots
+
+### Signed in, Desktop
+
+![image](https://user-images.githubusercontent.com/31908183/232255648-27b6d686-d598-4a35-a5f8-4e3208a69139.png)
+
+### Signed in, Mobile
+
+![image](https://user-images.githubusercontent.com/31908183/232255764-42ef4f53-d9a6-446c-9db8-59025d650ddf.png)
+
+### Signed out, Desktop
+
+![image](https://user-images.githubusercontent.com/31908183/232255741-484b5582-dc30-49d7-a0bc-acb3baf21ab6.png)
+
+### Signed out, Mobile
+
+![image](https://user-images.githubusercontent.com/31908183/232255776-7449cc06-698a-457b-95e8-2d59e6e5ef26.png)
