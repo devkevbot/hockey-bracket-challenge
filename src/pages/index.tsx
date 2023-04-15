@@ -1,27 +1,26 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Head from "next/head";
 import { signIn, useSession } from "next-auth/react";
 import { api } from "~/utils/api";
 import { type Prediction, type Series, type Team } from "@prisma/client";
 import { type InferGetStaticPropsType } from "next";
 import { z } from "zod";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faSquareCheck,
+  faLock,
+  faSquareXmark,
+  faSquarePen,
+} from "@fortawesome/free-solid-svg-icons";
 
 function Home(props: InferGetStaticPropsType<typeof getStaticProps>) {
-  function getsSeriesInfo(
-    roundNumber: string,
-    highSeed: string,
-    lowSeed: string
-  ) {
-    const round = props.nhlPlayoffsDataByRound.find(
-      (round) => round.number.toString() === roundNumber
-    );
-
-    const series = round?.series.find((item) => {
-      return item.matchupTeams?.some((t) => t.team.name === highSeed);
-    });
-
-    if (!series) {
-      return {
+  const getsSeriesInfo = useCallback(
+    (
+      roundNumber: string,
+      highSeedTeamName: string,
+      lowSeedTeamName: string
+    ) => {
+      const defaultSeriesInfo = {
         highSeedScore: 0,
         lowSeedScore: 0,
         currentGame: {
@@ -32,35 +31,41 @@ function Home(props: InferGetStaticPropsType<typeof getStaticProps>) {
           },
         },
       };
-    }
 
-    const highSeedScore =
-      series.matchupTeams?.find((t) => t.team.name === highSeed)?.seriesRecord
-        .wins || 0;
-    const lowSeedScore =
-      series.matchupTeams?.find((t) => t.team.name === lowSeed)?.seriesRecord
-        .wins || 0;
+      const round = props.nhlPlayoffsDataByRound.find(
+        (round) => round.number === roundNumber
+      );
+      if (!round) {
+        return defaultSeriesInfo;
+      }
 
-    const currentGame = series?.currentGame;
-    if (!currentGame)
+      const series = round?.series.find((item) => {
+        return item.matchupTeams?.some((t) => t.team.name === highSeedTeamName);
+      });
+      if (!series) {
+        return defaultSeriesInfo;
+      }
+
+      const highSeedScore =
+        series.matchupTeams?.find((t) => t.team.name === highSeedTeamName)
+          ?.seriesRecord.wins ?? 0;
+      const lowSeedScore =
+        series.matchupTeams?.find((t) => t.team.name === lowSeedTeamName)
+          ?.seriesRecord.wins ?? 0;
+
+      const currentGame = series?.currentGame;
+      if (!currentGame) {
+        return defaultSeriesInfo;
+      }
+
       return {
         highSeedScore,
         lowSeedScore,
-        currentGame: {
-          seriesSummary: {
-            gameLabel: "",
-            gameTime: new Date().toISOString(),
-            necessary: false,
-          },
-        },
+        currentGame,
       };
-
-    return {
-      highSeedScore,
-      lowSeedScore,
-      currentGame,
-    };
-  }
+    },
+    [props.nhlPlayoffsDataByRound]
+  );
 
   return (
     <>
@@ -97,7 +102,7 @@ export async function getStaticProps() {
   const NhlApiSchema = z.object({
     rounds: z.array(
       z.object({
-        number: z.number(),
+        number: z.coerce.string(),
         series: z.array(
           z.object({
             currentGame: z.object({
@@ -214,8 +219,7 @@ function RoundGrid(props: RoundGridProps) {
           )?.score;
           const highSeed = series.teams.find((t) => t.isHighSeed);
           const lowSeed = series.teams.find((t) => t.id !== highSeed?.id);
-
-          const info = props.getSeriesInfo(
+          const seriesInfo = props.getSeriesInfo(
             props.round,
             highSeed?.fullName || "",
             lowSeed?.fullName || ""
@@ -224,7 +228,7 @@ function RoundGrid(props: RoundGridProps) {
           return (
             <SeriesCard
               {...series}
-              {...info}
+              {...seriesInfo}
               userPredictedScore={userPredictedScore}
               key={index}
             />
@@ -263,16 +267,14 @@ const shortNameToColor: Record<string, string> = {
 };
 
 function SeriesCard(props: SeriesProps) {
-  const defaultPrediction = "Choose an option";
-
   const [prediction, setPrediction] = useState<string>(
-    props.userPredictedScore || defaultPrediction
+    props.userPredictedScore || ""
   );
-  const mutation = api.prediction.upsert.useMutation();
 
+  const predictionMutation = api.prediction.upsert.useMutation();
   function onChangePrediction(seriesId: string, score: string) {
     setPrediction(score);
-    mutation.mutate({ seriesId, score });
+    predictionMutation.mutate({ seriesId, score });
   }
 
   let hasSeriesStarted = false;
@@ -281,6 +283,17 @@ function SeriesCard(props: SeriesProps) {
     hasSeriesStarted = new Date(currentGameStartTime) <= new Date();
   }
 
+  const winsRequiredToAdvance = 4;
+  const isSeriesOver = [props.highSeedScore, props.lowSeedScore].some(
+    (value) => value === winsRequiredToAdvance
+  );
+
+  const isPredictionCorrect = checkPrediction(
+    prediction,
+    props.highSeedScore,
+    props.lowSeedScore
+  );
+
   const highSeed = props.teams.find((t) => t.isHighSeed);
   const lowSeed = props.teams.find((t) => t.id !== highSeed?.id);
 
@@ -288,8 +301,11 @@ function SeriesCard(props: SeriesProps) {
     return null;
   }
 
-  const highScore = `${highSeed.shortName} ${props.highSeedScore}`;
-  const lowScore = `${lowSeed.shortName} ${props.lowSeedScore}`;
+  const highSeedScore = `${highSeed.shortName} ${props.highSeedScore}`;
+  const lowSeedScore = `${lowSeed.shortName} ${props.lowSeedScore}`;
+
+  const highSeedColor = shortNameToColor[highSeed.shortName] || "bg-black";
+  const lowSeedColor = shortNameToColor[lowSeed.shortName] || "bg-black";
 
   return (
     <div className="flex transform flex-col items-center gap-4 rounded-md bg-gradient-to-tl from-sky-200 to-white p-4 drop-shadow-lg duration-100 ease-in-out md:hover:scale-105">
@@ -307,29 +323,27 @@ function SeriesCard(props: SeriesProps) {
 
       <div className="grid w-full grid-cols-2 rounded-md text-center text-lg font-semibold text-white">
         <span
-          className={`rounded-bl-md rounded-tl-md border-b-2 border-l-2 border-t-2 ${
-            shortNameToColor[highSeed.shortName] || "bg-black"
-          } py-2`}
+          className={`rounded-bl-md rounded-tl-md border-b-2 border-l-2 border-t-2 ${highSeedColor} py-2`}
         >
-          {highScore}
+          {highSeedScore}
         </span>
         <span
-          className={`w-full rounded-br-md rounded-tr-md border-b-2 border-r-2 border-t-2 ${
-            shortNameToColor[lowSeed.shortName] || "bg-black"
-          } py-2`}
+          className={`w-full rounded-br-md rounded-tr-md border-b-2 border-r-2 border-t-2 ${lowSeedColor} py-2`}
         >
-          {lowScore}
+          {lowSeedScore}
         </span>
       </div>
 
       <h3 className="-mb-2 text-xl font-semibold">Series Prediction</h3>
       <select
-        className="w-full cursor-pointer rounded-md bg-black px-4 py-2 text-white"
+        className="w-full cursor-pointer rounded-md bg-black px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
         value={prediction}
         onChange={(event) => onChangePrediction(props.id, event.target.value)}
         disabled={hasSeriesStarted}
       >
-        <option disabled>{defaultPrediction}</option>
+        <option disabled value="">
+          Choose prediction
+        </option>
         <optgroup label={`${highSeed.shortName} wins`}></optgroup>
         <option value="4-0">4-0 {highSeed.shortName}</option>
         <option value="4-1">4-1 {highSeed.shortName}</option>
@@ -341,6 +355,70 @@ function SeriesCard(props: SeriesProps) {
         <option value="2-4">4-2 {lowSeed.shortName} </option>
         <option value="3-4">4-3 {lowSeed.shortName} </option>
       </select>
+
+      {predictionMutation.error && (
+        <p className="text-md font-semibold text-red-600">
+          Couldn&apos;t save prediction! {predictionMutation.error.message}
+        </p>
+      )}
+
+      <div className="flex flex-col gap-4">
+        {hasSeriesStarted ? (
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon
+              icon={faLock}
+              className="aspect-square w-8 text-yellow-500"
+            />
+            <span className="font-semibold">Prediction locked</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon
+              icon={faSquarePen}
+              className="aspect-square w-8 text-blue-800"
+            />
+            <span className="font-semibold">Prediction editable</span>
+          </div>
+        )}
+        {isSeriesOver &&
+          (isPredictionCorrect ? (
+            <div className="flex items-center gap-2">
+              <FontAwesomeIcon
+                icon={faSquareCheck}
+                className="aspect-square w-8 text-green-500"
+              />
+              <span className="font-semibold">You were right!</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <FontAwesomeIcon
+                icon={faSquareXmark}
+                className="aspect-square w-8 text-red-600"
+              />
+              <span className="font-semibold">You were wrong!</span>
+            </div>
+          ))}
+      </div>
     </div>
+  );
+}
+
+function checkPrediction(
+  prediction: string,
+  highSeedScore: number,
+  lowSeedScore: number
+) {
+  if (!prediction) {
+    return false;
+  }
+
+  const [highSeedPredictedScore, lowSeedPredictedScore] = prediction.split("-");
+  if (!highSeedPredictedScore || !lowSeedPredictedScore) {
+    return false;
+  }
+
+  return (
+    highSeedPredictedScore === highSeedScore.toString() &&
+    lowSeedPredictedScore === lowSeedScore.toString()
   );
 }
