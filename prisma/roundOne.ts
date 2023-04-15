@@ -2,6 +2,7 @@ export const roundOneSeries = [
   {
     data: {
       startDate: new Date("April 17, 2023 19:30 EDT"),
+      round: "1",
       teams: {
         create: [
           {
@@ -23,6 +24,7 @@ export const roundOneSeries = [
   {
     data: {
       startDate: new Date("April 17, 2023 19:00 EDT"),
+      round: "1",
       teams: {
         create: [
           {
@@ -44,6 +46,7 @@ export const roundOneSeries = [
   {
     data: {
       startDate: new Date("April 18, 2023 19:00 EDT"),
+      round: "1",
       teams: {
         create: [
           {
@@ -65,6 +68,7 @@ export const roundOneSeries = [
   {
     data: {
       startDate: new Date("April 18, 2023 19:30 EDT"),
+      round: "1",
       teams: {
         create: [
           {
@@ -86,6 +90,7 @@ export const roundOneSeries = [
   {
     data: {
       startDate: new Date("April 18, 2023 19:30 EDT"),
+      round: "1",
       teams: {
         create: [
           {
@@ -107,6 +112,7 @@ export const roundOneSeries = [
   {
     data: {
       startDate: new Date("April 17, 2023 20:00 EDT"),
+      round: "1",
       teams: {
         create: [
           {
@@ -128,6 +134,7 @@ export const roundOneSeries = [
   {
     data: {
       startDate: new Date("April 18, 2023 19:00 EDT"),
+      round: "1",
       teams: {
         create: [
           {
@@ -149,6 +156,7 @@ export const roundOneSeries = [
   {
     data: {
       startDate: new Date("April 17, 2023 19:30 EDT"),
+      round: "1",
       teams: {
         create: [
           {
