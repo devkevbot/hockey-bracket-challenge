@@ -15,10 +15,32 @@ datasource db {
   relationMode = "prisma"
 }
 
-model Example {
+model Team {
+  id         String  @id @default(cuid())
+  fullName   String  @unique
+  shortName  String  @unique
+  isHighSeed Boolean @default(false)
+  score      String
+  seriesId   String
+  series     Series  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@index([seriesId])
+}
+
+model Series {
   id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  startDate DateTime
+  teams     Team[]
+}
+
+model Prediction {
+  id       String @id @default(cuid())
+  userId   String
+  seriesId String
+  score    String
+
+  @@unique([userId, seriesId])
+  @@index([userId])
 }
 
 // Necessary for Next auth

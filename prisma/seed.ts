@@ -1,16 +1,14 @@
 import { prisma } from "../src/server/db";
+import { roundOneSeries } from "./roundOne";
 
 async function main() {
-  const id = "cl9ebqhxk00003b600tymydho";
-  await prisma.example.upsert({
-    where: {
-      id,
-    },
-    create: {
-      id,
-    },
-    update: {},
-  });
+  await prisma.prediction.deleteMany();
+  await prisma.series.deleteMany();
+  await prisma.team.deleteMany();
+
+  for await (const series of roundOneSeries) {
+    await prisma.series.create(series);
+  }
 }
 
 main()

@@ -32,33 +32,16 @@ export default Home;
 function Authentication() {
   const { data: sessionData } = useSession();
 
-  const { data: secretMessage } = api.example.getSecretMessage.useQuery(
-    undefined,
-    { enabled: sessionData?.user !== undefined }
-  );
+  const { data: series } = api.series.getAll.useQuery();
+  console.log({ series });
 
-  const SERIES: Series[] = [
-    {
-      id: "1",
-      startDate: new Date("2024-04-17").toISOString(),
-      highSeed: {
-        id: "1",
-        fullName: "Vegas Golden Knights",
-        shortName: "VGK",
-      },
-      lowSeed: {
-        id: "2",
-        fullName: "Winnipeg Jets",
-        shortName: "WPG",
-      },
-    },
-  ];
+  const { data: predictions } = api.prediction.getAll.useQuery();
+  console.log({ predictions });
 
   return (
     <div className="flex flex-col items-center justify-center gap-4">
       <p className="text-center text-2xl text-white">
         {sessionData && <span>Logged in as {sessionData.user?.name}</span>}
-        {secretMessage && <span> - {secretMessage}</span>}
       </p>
       <button
         className="rounded-full bg-white/10 px-10 py-3 font-semibold text-white no-underline transition hover:bg-white/20"
@@ -66,9 +49,23 @@ function Authentication() {
       >
         {sessionData ? "Sign out" : "Sign in"}
       </button>
-      {SERIES.map((series, index) => {
-        return <Series {...series} key={index} />;
-      })}
+      <div className="grid grid-cols-4 gap-8">
+        {sessionData &&
+          series &&
+          predictions &&
+          series.map((series, index) => {
+            const userPredictedScore = predictions.find(
+              (p) => p.seriesId === series.id
+            )?.score;
+            return (
+              <Series
+                {...series}
+                userPredictedScore={userPredictedScore}
+                key={index}
+              />
+            );
+          })}
+      </div>
     </div>
   );
 }
@@ -77,53 +74,73 @@ interface Team {
   id: string;
   fullName: string;
   shortName: string;
+  score: string;
+  isHighSeed: boolean;
 }
 
-interface Series {
+interface SeriesProps {
   id: string;
-  startDate: string;
-  highSeed: Team;
-  lowSeed: Team;
+  startDate: Date;
+  teams: Team[];
+  userPredictedScore?: string;
 }
 
-function Series(data: Series) {
-  const [prediction, setPrediction] = useState<string>("Choose an option");
+function Series(data: SeriesProps) {
+  const defaultPrediction = "Choose an option";
 
-  const hasSeriesStarted = new Date(data.startDate) <= new Date();
+  const [prediction, setPrediction] = useState<string>(
+    data.userPredictedScore || defaultPrediction
+  );
+  const mutation = api.prediction.upsert.useMutation();
+
+  function onChangePrediction(seriesId: string, score: string) {
+    setPrediction(score);
+
+    mutation.mutate({ seriesId, score });
+  }
+
+  const hasSeriesStarted = data.startDate <= new Date();
+
+  const highSeed = data.teams.find((t) => t.isHighSeed);
+  const lowSeed = data.teams.find((t) => t.id !== highSeed?.id);
+
+  if (!highSeed || !lowSeed) {
+    return null;
+  }
 
   return (
     <>
       <div className="flex flex-col items-center gap-4 rounded-md border-2 border-black bg-slate-100 p-4 drop-shadow-lg">
-        <span className="text-xl font-semibold">{data.highSeed.fullName}</span>
+        <span className="text-xl font-semibold">{highSeed.fullName}</span>
         <div className="flex w-full items-center">
           <hr className="w-full border-2 border-black" />
           <span className="px-2 font-bold">VS</span>
           <hr className="w-full border-2 border-black" />
         </div>
-        <span className="text-xl font-semibold">{data.lowSeed.fullName}</span>
+        <span className="text-xl font-semibold">{lowSeed.fullName}</span>
         <h3 className="text-xl font-semibold">Prediction: </h3>
         <select
           className="px-4 py-2"
           value={prediction}
-          onChange={(event) => setPrediction(event.target.value)}
+          onChange={(event) => onChangePrediction(data.id, event.target.value)}
           disabled={hasSeriesStarted}
         >
           <option disabled selected>
-            Choose an option
+            {defaultPrediction}
           </option>
-          <option>4-0 {data.highSeed.shortName}</option>
-          <option>4-1 {data.highSeed.shortName}</option>
-          <option>4-2 {data.highSeed.shortName}</option>
-          <option>4-3 {data.highSeed.shortName}</option>
-          <option>4-0 {data.lowSeed.shortName}</option>
-          <option>4-1 {data.lowSeed.shortName} </option>
-          <option>4-2 {data.lowSeed.shortName} </option>
-          <option>4-3 {data.lowSeed.shortName} </option>
+          <option>4-0 {highSeed.shortName}</option>
+          <option>4-1 {highSeed.shortName}</option>
+          <option>4-2 {highSeed.shortName}</option>
+          <option>4-3 {highSeed.shortName}</option>
+          <option>4-0 {lowSeed.shortName}</option>
+          <option>4-1 {lowSeed.shortName} </option>
+          <option>4-2 {lowSeed.shortName} </option>
+          <option>4-3 {lowSeed.shortName} </option>
         </select>
         <h3 className="text-xl font-semibold">Series score:</h3>
         <p>
           {hasSeriesStarted
-            ? `${data.highSeed.shortName} 0 - ${data.lowSeed.shortName} 0`
+            ? `${highSeed.shortName} 0 - ${lowSeed.shortName} 0`
             : "Series not started"}
         </p>
       </div>
