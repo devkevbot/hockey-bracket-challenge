@@ -4,13 +4,46 @@ import { signIn, useSession } from "next-auth/react";
 import { api } from "~/utils/api";
 import { type Prediction, type Series, type Team } from "@prisma/client";
 import { type InferGetServerSidePropsType } from "next";
+import { z } from "zod";
 
 export async function getServerSideProps() {
   const response = await fetch(
     "https://statsapi.web.nhl.com/api/v1/tournaments/playoffs?expand=round.series,schedule.game.seriesSummary&season=20222023"
   );
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const data = await response.json();
+
+  const NhlApiSchema = z.object({
+    rounds: z.array(
+      z.object({
+        number: z.number(),
+        series: z.array(
+          z.object({
+            currentGame: z.object({
+              seriesSummary: z.object({
+                gameLabel: z.string(),
+                gameTime: z.string().optional(),
+                necessary: z.boolean().optional(),
+              }),
+            }),
+            matchupTeams: z
+              .array(
+                z.object({
+                  team: z.object({
+                    name: z.string(),
+                  }),
+                  seriesRecord: z.object({
+                    wins: z.number(),
+                    losses: z.number(),
+                  }),
+                })
+              )
+              .optional(),
+          })
+        ),
+      })
+    ),
+  });
+
+  const data = NhlApiSchema.parse(await response.json());
 
   return {
     props: {
@@ -20,27 +53,53 @@ export async function getServerSideProps() {
 }
 
 function Home(props: InferGetServerSidePropsType<typeof getServerSideProps>) {
-  console.log();
-
-  function getsSeriesInfo(roundNumber, highSeed, lowSeed) {
+  function getsSeriesInfo(
+    roundNumber: string,
+    highSeed: string,
+    lowSeed: string
+  ) {
     const round = props.nhlPlayoffsDataByRound.find(
       (round) => round.number.toString() === roundNumber
     );
 
-    const series = round.series.find((item) => {
-      return item.matchupTeams.some((t) => t.team.name === highSeed);
+    const series = round?.series.find((item) => {
+      return item.matchupTeams?.some((t) => t.team.name === highSeed);
     });
 
-    const highSeedScore = series.matchupTeams.find(
-      (t) => t.team.name === highSeed
-    )?.seriesRecord.wins;
-    const lowSeedScore = series.matchupTeams.find(
-      (t) => t.team.name === lowSeed
-    )?.seriesRecord.wins;
+    if (!series) {
+      return {
+        highSeedScore: 0,
+        lowSeedScore: 0,
+        currentGame: {
+          seriesSummary: {
+            gameLabel: "",
+            gameTime: new Date().toISOString(),
+            necessary: false,
+          },
+        },
+      };
+    }
 
-    const currentGame = series.currentGame;
+    const highSeedScore =
+      series.matchupTeams?.find((t) => t.team.name === highSeed)?.seriesRecord
+        .wins || 0;
+    const lowSeedScore =
+      series.matchupTeams?.find((t) => t.team.name === lowSeed)?.seriesRecord
+        .wins || 0;
 
-    console.log({ highSeedScore, lowSeedScore, currentGame });
+    const currentGame = series?.currentGame;
+    if (!currentGame)
+      return {
+        highSeedScore,
+        lowSeedScore,
+        currentGame: {
+          seriesSummary: {
+            gameLabel: "",
+            gameTime: new Date().toISOString(),
+            necessary: false,
+          },
+        },
+      };
 
     return {
       highSeedScore,
@@ -82,7 +141,17 @@ type GetSeriesInfo = (
   round: string,
   highSeedTeamName: string,
   lowSeedTeamName: string
-) => [number, number];
+) => {
+  highSeedScore: number;
+  lowSeedScore: number;
+  currentGame: {
+    seriesSummary: {
+      gameLabel: string;
+      gameTime?: string;
+      necessary?: boolean;
+    };
+  };
+};
 
 type ProtectedContentProps = {
   getSeriesInfo: GetSeriesInfo;
@@ -149,8 +218,8 @@ function RoundGrid(props: RoundGridProps) {
 
           const info = props.getSeriesInfo(
             props.round,
-            highSeed?.fullName,
-            lowSeed?.fullName
+            highSeed?.fullName || "",
+            lowSeed?.fullName || ""
           );
 
           return (
@@ -169,10 +238,11 @@ function RoundGrid(props: RoundGridProps) {
 
 type ScoreKind = Pick<Prediction, "score">["score"];
 
-type SeriesProps = Series & {
-  teams: Team[];
-  userPredictedScore?: ScoreKind;
-};
+type SeriesProps = Series &
+  ReturnType<GetSeriesInfo> & {
+    teams: Team[];
+    userPredictedScore?: ScoreKind;
+  };
 
 const shortNameToColor: Record<string, string> = {
   BOS: "bg-amber-400",
@@ -238,7 +308,8 @@ function SeriesCard(props: SeriesProps) {
         )}
         <br />
         <span>
-          {new Date(props.currentGame.seriesSummary.gameTime).toLocaleString()}
+          {props.currentGame.seriesSummary.gameTime &&
+            new Date(props.currentGame.seriesSummary.gameTime).toLocaleString()}
         </span>
       </div>
 
