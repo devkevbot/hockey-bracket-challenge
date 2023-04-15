@@ -1,8 +1,8 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import Head from "next/head";
 import { signIn, useSession } from "next-auth/react";
 import { api } from "~/utils/api";
-import { type Prediction, type Series, type Team } from "@prisma/client";
+import { type Prediction } from "@prisma/client";
 import { type InferGetStaticPropsType } from "next";
 import { z } from "zod";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -14,58 +14,11 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 function Home(props: InferGetStaticPropsType<typeof getStaticProps>) {
-  const getsSeriesInfo = useCallback(
-    (
-      roundNumber: string,
-      highSeedTeamName: string,
-      lowSeedTeamName: string
-    ) => {
-      const defaultSeriesInfo = {
-        highSeedScore: 0,
-        lowSeedScore: 0,
-        currentGame: {
-          seriesSummary: {
-            gameLabel: "",
-            gameTime: new Date().toISOString(),
-            necessary: false,
-          },
-        },
-      };
+  const { data: sessionData, status } = useSession();
 
-      const round = props.nhlPlayoffsDataByRound.find(
-        (round) => round.number === roundNumber
-      );
-      if (!round) {
-        return defaultSeriesInfo;
-      }
-
-      const series = round?.series.find((item) => {
-        return item.matchupTeams?.some((t) => t.team.name === highSeedTeamName);
-      });
-      if (!series) {
-        return defaultSeriesInfo;
-      }
-
-      const highSeedScore =
-        series.matchupTeams?.find((t) => t.team.name === highSeedTeamName)
-          ?.seriesRecord.wins ?? 0;
-      const lowSeedScore =
-        series.matchupTeams?.find((t) => t.team.name === lowSeedTeamName)
-          ?.seriesRecord.wins ?? 0;
-
-      const currentGame = series?.currentGame;
-      if (!currentGame) {
-        return defaultSeriesInfo;
-      }
-
-      return {
-        highSeedScore,
-        lowSeedScore,
-        currentGame,
-      };
-    },
-    [props.nhlPlayoffsDataByRound]
-  );
+  if (status === "loading") {
+    return <span className="text-4xl font-bold">Loading...</span>;
+  }
 
   return (
     <>
@@ -85,7 +38,18 @@ function Home(props: InferGetStaticPropsType<typeof getStaticProps>) {
           <h2 className="text-4xl font-bold tracking-tight text-black sm:text-[4rem]">
             2023 Edition
           </h2>
-          <ProtectedContent getSeriesInfo={getsSeriesInfo} />
+
+          <div className="flex flex-col items-center justify-center gap-4">
+            {!sessionData && (
+              <button
+                className="rounded-lg bg-black px-10 py-3 font-semibold text-white no-underline transition hover:bg-black/20"
+                onClick={() => void signIn()}
+              >
+                {"Sign in"}
+              </button>
+            )}
+            {sessionData && <RoundsList playoffsData={props.playoffsData} />}
+          </div>
         </div>
       </main>
     </>
@@ -100,16 +64,30 @@ export async function getStaticProps() {
   );
 
   const NhlApiSchema = z.object({
+    defaultRound: z.number(),
     rounds: z.array(
       z.object({
-        number: z.coerce.string(),
+        names: z.object({
+          name: z.string(),
+          shortName: z.string(),
+        }),
+        number: z.number(),
         series: z.array(
           z.object({
+            names: z.object({
+              matchupName: z.string(),
+              matchupShortName: z.string(),
+              teamAbbreviationA: z.string(),
+              teamAbbreviationB: z.string(),
+              seriesSlug: z.string().optional(),
+            }),
             currentGame: z.object({
               seriesSummary: z.object({
                 gameLabel: z.string(),
                 gameTime: z.string().optional(),
                 necessary: z.boolean().optional(),
+                seriesStatus: z.string().optional(),
+                seriesStatusShort: z.string().optional(),
               }),
             }),
             matchupTeams: z
@@ -117,6 +95,10 @@ export async function getStaticProps() {
                 z.object({
                   team: z.object({
                     name: z.string(),
+                  }),
+                  seed: z.object({
+                    type: z.string(),
+                    isTop: z.boolean(),
                   }),
                   seriesRecord: z.object({
                     wins: z.number(),
@@ -135,225 +117,179 @@ export async function getStaticProps() {
 
   return {
     props: {
-      nhlPlayoffsDataByRound: data.rounds,
+      playoffsData: data,
     },
     revalidate: 60 * 60,
   };
 }
 
-type GetSeriesInfo = (
-  round: string,
-  highSeedTeamName: string,
-  lowSeedTeamName: string
-) => {
-  highSeedScore: number;
-  lowSeedScore: number;
-  currentGame: {
-    seriesSummary: {
-      gameLabel: string;
-      gameTime?: string;
-      necessary?: boolean;
-    };
-  };
-};
-
-type ProtectedContentProps = {
-  getSeriesInfo: GetSeriesInfo;
-};
-
-function ProtectedContent(props: ProtectedContentProps) {
-  const { data: sessionData, status } = useSession();
-  const { data: predictions } = api.prediction.getAll.useQuery();
-
-  if (status === "loading") {
-    return <span className="text-4xl font-bold">Loading...</span>;
-  }
+function RoundsList({
+  playoffsData,
+}: InferGetStaticPropsType<typeof getStaticProps>) {
+  const currentRound = playoffsData.defaultRound;
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4">
-      {!sessionData && (
-        <button
-          className="rounded-lg bg-black px-10 py-3 font-semibold text-white no-underline transition hover:bg-black/20"
-          onClick={() => void signIn()}
-        >
-          {"Sign in"}
-        </button>
-      )}
-
-      {sessionData && (
-        <RoundGrid
-          round="1"
-          predictions={predictions}
-          getSeriesInfo={props.getSeriesInfo}
-        />
-      )}
+    <div className="flex flex-col">
+      {playoffsData.rounds.map((round, index) => {
+        if (round.number > currentRound) return null;
+        return <RoundItem data={round} key={index} />;
+      })}
     </div>
   );
 }
 
-type RoundKind = Pick<Series, "round">;
-
-type RoundGridProps = RoundKind & {
-  predictions?: Prediction[];
-  getSeriesInfo: GetSeriesInfo;
-};
-
-function RoundGrid(props: RoundGridProps) {
-  const { data: series } = api.series.getAllByRound.useQuery({
-    round: props.round,
-  });
-
-  if (!series || series?.length === 0) {
-    return null;
-  }
-
+function RoundItem({
+  data,
+}: {
+  data: InferGetStaticPropsType<
+    typeof getStaticProps
+  >["playoffsData"]["rounds"][number];
+}) {
   return (
     <div className="flex flex-col items-center p-2">
       <h3 className="mb-8 mt-4 w-fit rounded-lg bg-black px-8 py-4 text-center text-4xl font-bold uppercase text-white">
-        Round {props.round}
+        {data.names.name}
       </h3>
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
-        {series.map((series, index) => {
-          const userPredictedScore = props.predictions?.find(
-            (p) => p.seriesId === series.id
-          )?.score;
-          const highSeed = series.teams.find((t) => t.isHighSeed);
-          const lowSeed = series.teams.find((t) => t.id !== highSeed?.id);
-          const seriesInfo = props.getSeriesInfo(
-            props.round,
-            highSeed?.fullName || "",
-            lowSeed?.fullName || ""
-          );
-
-          return (
-            <SeriesCard
-              {...series}
-              {...seriesInfo}
-              userPredictedScore={userPredictedScore}
-              key={index}
-            />
-          );
-        })}
-      </div>
+      <SeriesList series={data.series} />
     </div>
   );
 }
 
-type ScoreKind = Pick<Prediction, "score">["score"];
+function SeriesList({
+  series,
+}: {
+  series: InferGetStaticPropsType<
+    typeof getStaticProps
+  >["playoffsData"]["rounds"][number]["series"];
+  predictions?: Prediction[];
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
+      {series.map((series, index) => {
+        const { data: prediction } = api.prediction.getBySlug.useQuery({
+          slug: series.names.seriesSlug || "",
+        });
+        return <SeriesItem data={series} prediction={prediction} key={index} />;
+      })}
+    </div>
+  );
+}
 
-type SeriesProps = Series &
-  ReturnType<GetSeriesInfo> & {
-    teams: Team[];
-    userPredictedScore?: ScoreKind;
-  };
-
-const shortNameToColor: Record<string, string> = {
-  BOS: "bg-amber-400",
-  FLA: "bg-red-700",
-  CAR: "bg-red-600",
-  NYI: "bg-orange-600",
-  NJ: "bg-red-600",
-  NYR: "bg-blue-800",
-  TOR: "bg-blue-600",
-  TB: "bg-blue-700",
-  VGK: "bg-yellow-500",
-  WPG: "bg-blue-900",
-  EDM: "bg-orange-500",
-  LAK: "bg-black",
-  COL: "bg-red-950",
-  SEA: "bg-sky-300",
-  DAL: "bg-green-600",
-  MIN: "bg-green-800",
+const teamNameToColor: Record<string, string> = {
+  ["Boston Bruins"]: "bg-amber-400",
+  ["Florida Panthers"]: "bg-red-700",
+  ["Carolina Hurricanes"]: "bg-red-600",
+  ["New York Islanders"]: "bg-orange-600",
+  ["New Jersey Devils"]: "bg-red-600",
+  ["New York Rangers"]: "bg-blue-800",
+  ["Toronto Maple Leafs"]: "bg-blue-600",
+  ["Tampa Bay Lightning"]: "bg-blue-700",
+  ["Vegas Golden Knights"]: "bg-yellow-500",
+  ["Winnipeg Jets"]: "bg-blue-900",
+  ["Edmonton Oilers"]: "bg-orange-500",
+  ["Los Angeles Kings"]: "bg-black",
+  ["Colorado Avalanche"]: "bg-red-950",
+  ["Seattle Kraken"]: "bg-sky-300",
+  ["Dallas Stars"]: "bg-green-600",
+  ["Minnesota Wild"]: "bg-green-800",
 };
 
-function SeriesCard(props: SeriesProps) {
-  const [prediction, setPrediction] = useState<string>(
-    props.userPredictedScore || ""
+function SeriesItem({
+  data,
+  prediction,
+}: {
+  data: InferGetStaticPropsType<
+    typeof getStaticProps
+  >["playoffsData"]["rounds"][number]["series"][number];
+  prediction: Prediction | null | undefined;
+}) {
+  const [seriesPrediction, setSeriesPrediction] = useState<string>(
+    prediction?.score || ""
   );
+
+  console.log({ score: prediction?.score, seriesPrediction });
 
   const predictionMutation = api.prediction.upsert.useMutation();
-  function onChangePrediction(seriesId: string, score: string) {
-    setPrediction(score);
-    predictionMutation.mutate({ seriesId, score });
+  function onChangePrediction(slug: string | undefined, score: string) {
+    if (typeof slug === "undefined") {
+      return;
+    }
+
+    setSeriesPrediction(score);
+    predictionMutation.mutate({ slug, score });
   }
 
-  let hasSeriesStarted = false;
-  const currentGameStartTime = props.currentGame.seriesSummary.gameTime;
-  if (currentGameStartTime) {
-    hasSeriesStarted = new Date(currentGameStartTime) <= new Date();
-  }
-
-  const winsRequiredToAdvance = 4;
-  const isSeriesOver = [props.highSeedScore, props.lowSeedScore].some(
-    (value) => value === winsRequiredToAdvance
-  );
-
-  const isPredictionCorrect = checkPrediction(
-    prediction,
-    props.highSeedScore,
-    props.lowSeedScore
-  );
-
-  const highSeed = props.teams.find((t) => t.isHighSeed);
-  const lowSeed = props.teams.find((t) => t.id !== highSeed?.id);
-
-  if (!highSeed || !lowSeed) {
+  const topSeed = data.matchupTeams?.find((team) => team.seed.isTop);
+  const bottomSeed = data.matchupTeams?.find((team) => !team.seed.isTop);
+  if (!topSeed || !bottomSeed || !data.names.seriesSlug) {
     return null;
   }
 
-  const highSeedScore = `${highSeed.shortName} ${props.highSeedScore}`;
-  const lowSeedScore = `${lowSeed.shortName} ${props.lowSeedScore}`;
+  let hasSeriesStarted = false;
+  const currentGameStartTime = data.currentGame.seriesSummary.gameTime;
+  if (currentGameStartTime) {
+    hasSeriesStarted = new Date(currentGameStartTime) <= new Date();
+  }
+  const winsRequiredToAdvance = 4;
+  const isSeriesOver = [
+    topSeed.seriesRecord.wins,
+    bottomSeed.seriesRecord.wins,
+  ].some((value) => value === winsRequiredToAdvance);
+  const isPredictionCorrect = checkPrediction(
+    prediction?.score || "",
+    topSeed.seriesRecord.wins,
+    bottomSeed.seriesRecord.wins
+  );
 
-  const highSeedColor = shortNameToColor[highSeed.shortName] || "bg-black";
-  const lowSeedColor = shortNameToColor[lowSeed.shortName] || "bg-black";
+  const topSeedColor = teamNameToColor[topSeed.team.name] ?? "";
+  const bottomSeedColor = teamNameToColor[bottomSeed.team.name] ?? "";
 
   return (
     <div className="flex transform flex-col items-center gap-4 rounded-md bg-gradient-to-tl from-sky-200 to-white p-4 drop-shadow-lg duration-100 ease-in-out md:hover:scale-105">
       <div className="flex w-full flex-col gap-2 text-center">
-        <span className="text-xl font-semibold">{highSeed.fullName}</span>
-
+        <span className="text-xl font-semibold">{topSeed.team.name}</span>
         <div className="flex w-full items-center">
           <hr className="w-full border-2 border-black" />
           <span className="px-2 font-bold italic">VS</span>
           <hr className="w-full border-2 border-black" />
         </div>
-
-        <span className="text-xl font-semibold">{lowSeed.fullName}</span>
+        <span className="text-xl font-semibold">{bottomSeed.team.name}</span>
       </div>
-
       <div className="grid w-full grid-cols-2 rounded-md text-center text-lg font-semibold text-white">
         <span
-          className={`rounded-bl-md rounded-tl-md border-b-2 border-l-2 border-t-2 ${highSeedColor} py-2`}
+          className={`rounded-bl-md rounded-tl-md border-b-2 border-l-2 border-t-2 ${topSeedColor} py-2`}
         >
-          {highSeedScore}
+          {topSeed.seriesRecord.wins}
         </span>
         <span
-          className={`w-full rounded-br-md rounded-tr-md border-b-2 border-r-2 border-t-2 ${lowSeedColor} py-2`}
+          className={`w-full rounded-br-md rounded-tr-md border-b-2 border-r-2 border-t-2 ${bottomSeedColor} py-2`}
         >
-          {lowSeedScore}
+          {bottomSeed.seriesRecord.wins}
         </span>
       </div>
 
       <h3 className="-mb-2 text-xl font-semibold">Series Prediction</h3>
       <select
         className="w-full cursor-pointer rounded-md bg-black px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
-        value={prediction}
-        onChange={(event) => onChangePrediction(props.id, event.target.value)}
+        value={seriesPrediction}
+        onChange={(event) =>
+          onChangePrediction(data.names.seriesSlug, event.target.value)
+        }
         disabled={hasSeriesStarted}
       >
         <option disabled value="">
           Choose prediction
         </option>
-        <optgroup label={`${highSeed.shortName} wins`}></optgroup>
-        <option value="4-0">4-0 {highSeed.shortName}</option>
-        <option value="4-1">4-1 {highSeed.shortName}</option>
-        <option value="4-2">4-2 {highSeed.shortName}</option>
-        <option value="4-3">4-3 {highSeed.shortName}</option>
-        <optgroup label={`${lowSeed.shortName} wins`}></optgroup>
-        <option value="0-4">4-0 {lowSeed.shortName}</option>
-        <option value="1-4">4-1 {lowSeed.shortName} </option>
-        <option value="2-4">4-2 {lowSeed.shortName} </option>
-        <option value="3-4">4-3 {lowSeed.shortName} </option>
+        <optgroup label={`${topSeed.team.name} win`}></optgroup>
+        <option value="4-0">4-0</option>
+        <option value="4-1">4-1</option>
+        <option value="4-2">4-2</option>
+        <option value="4-3">4-3</option>
+        <optgroup label={`${bottomSeed.team.name} win`}></optgroup>
+        <option value="0-4">4-0</option>
+        <option value="1-4">4-1 </option>
+        <option value="2-4">4-2 </option>
+        <option value="3-4">4-3 </option>
       </select>
 
       {predictionMutation.error && (
@@ -362,7 +298,7 @@ function SeriesCard(props: SeriesProps) {
         </p>
       )}
 
-      <div className="flex flex-col gap-4">
+      <div className="flex w-full flex-col gap-4">
         {hasSeriesStarted ? (
           <div className="flex items-center gap-2">
             <FontAwesomeIcon
@@ -405,20 +341,20 @@ function SeriesCard(props: SeriesProps) {
 
 function checkPrediction(
   prediction: string,
-  highSeedScore: number,
-  lowSeedScore: number
+  topSeedWins: number,
+  bototmSeedWins: number
 ) {
   if (!prediction) {
     return false;
   }
 
-  const [highSeedPredictedScore, lowSeedPredictedScore] = prediction.split("-");
-  if (!highSeedPredictedScore || !lowSeedPredictedScore) {
+  const [topSeedPredictedWins, lowSeedPredictedWins] = prediction.split("-");
+  if (!topSeedPredictedWins || !lowSeedPredictedWins) {
     return false;
   }
 
   return (
-    highSeedPredictedScore === highSeedScore.toString() &&
-    lowSeedPredictedScore === lowSeedScore.toString()
+    topSeedPredictedWins === topSeedWins.toString() &&
+    lowSeedPredictedWins === bototmSeedWins.toString()
   );
 }

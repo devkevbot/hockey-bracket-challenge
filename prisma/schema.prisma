@@ -15,31 +15,21 @@ datasource db {
   relationMode = "prisma"
 }
 
-model Team {
-  id         String  @id @default(cuid())
-  fullName   String  @unique
-  shortName  String  @unique
-  isHighSeed Boolean @default(false)
-  seriesId   String
-  series     Series  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
-
-  @@index([seriesId])
-}
-
 model Series {
   id    String @id @default(cuid())
-  round String
-  teams Team[]
+  round Int
+  slug  String
 }
 
 model Prediction {
-  id       String @id @default(cuid())
-  userId   String
-  seriesId String
-  score    String
+  id     String @id @default(cuid())
+  userId String
+  slug   String
+  score  String
 
-  @@unique([userId, seriesId])
+  @@unique([userId, slug])
   @@index([userId])
+  @@index([slug])
 }
 
 // Necessary for Next auth

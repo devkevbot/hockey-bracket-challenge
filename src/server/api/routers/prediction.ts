@@ -3,28 +3,30 @@ import { z } from "zod";
 
 export const predictionRouter = createTRPCRouter({
   upsert: protectedProcedure
-    .input(z.object({ seriesId: z.string(), score: z.string() }))
+    .input(z.object({ slug: z.string(), score: z.string() }))
     .mutation(({ ctx, input }) => {
       return ctx.prisma.prediction.upsert({
         create: {
           score: input.score,
           userId: ctx.session.user.id,
-          seriesId: input.seriesId,
+          slug: input.slug,
         },
         update: {
           score: input.score,
         },
         where: {
-          userId_seriesId: {
+          userId_slug: {
             userId: ctx.session.user.id,
-            seriesId: input.seriesId,
+            slug: input.slug,
           },
         },
       });
     }),
-  getAll: protectedProcedure.query(({ ctx }) => {
-    return ctx.prisma.prediction.findMany({
-      where: { userId: ctx.session.user.id },
-    });
-  }),
+  getBySlug: protectedProcedure
+    .input(z.object({ slug: z.string() }))
+    .query(({ ctx, input }) => {
+      return ctx.prisma.prediction.findFirst({
+        where: { userId: ctx.session.user.id, slug: input.slug },
+      });
+    }),
 });

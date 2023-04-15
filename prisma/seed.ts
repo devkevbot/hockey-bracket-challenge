@@ -4,7 +4,6 @@ import { roundOneSeries } from "./roundOne";
 async function main() {
   await prisma.prediction.deleteMany();
   await prisma.series.deleteMany();
-  await prisma.team.deleteMany();
 
   for await (const series of roundOneSeries) {
     await prisma.series.create(series);
