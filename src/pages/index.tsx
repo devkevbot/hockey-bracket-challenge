@@ -16,10 +16,6 @@ import {
 function Home(props: InferGetStaticPropsType<typeof getStaticProps>) {
   const { data: sessionData, status } = useSession();
 
-  if (status === "loading") {
-    return <span className="text-4xl font-bold">Loading...</span>;
-  }
-
   return (
     <>
       <Head>
@@ -40,7 +36,7 @@ function Home(props: InferGetStaticPropsType<typeof getStaticProps>) {
           </h2>
 
           <div className="flex flex-col items-center justify-center gap-4">
-            {!sessionData && (
+            {status === "unauthenticated" && (
               <button
                 className="rounded-lg bg-black px-10 py-3 font-semibold text-white no-underline transition hover:bg-black/20"
                 onClick={() => void signIn()}
@@ -48,7 +44,12 @@ function Home(props: InferGetStaticPropsType<typeof getStaticProps>) {
                 {"Sign in"}
               </button>
             )}
-            {sessionData && <RoundsList playoffsData={props.playoffsData} />}
+            {status === "loading" && (
+              <span className="text-4xl font-bold">Loading...</span>
+            )}
+            {status === "authenticated" && sessionData && (
+              <RoundsList playoffsData={props.playoffsData} />
+            )}
           </div>
         </div>
       </main>
