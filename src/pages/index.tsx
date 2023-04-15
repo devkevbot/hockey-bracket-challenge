@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Head from "next/head";
 import { signIn, useSession } from "next-auth/react";
 import { api } from "~/utils/api";
@@ -164,12 +164,9 @@ function SeriesList({
   predictions?: Prediction[];
 }) {
   return (
-    <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid w-full grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
       {series.map((series, index) => {
-        const { data: prediction } = api.prediction.getBySlug.useQuery({
-          slug: series.names.seriesSlug || "",
-        });
-        return <SeriesItem data={series} prediction={prediction} key={index} />;
+        return <SeriesItem data={series} key={index} />;
       })}
     </div>
   );
@@ -196,18 +193,25 @@ const teamNameToColor: Record<string, string> = {
 
 function SeriesItem({
   data,
-  prediction,
 }: {
   data: InferGetStaticPropsType<
     typeof getStaticProps
   >["playoffsData"]["rounds"][number]["series"][number];
-  prediction: Prediction | null | undefined;
 }) {
+  const { data: prediction } = api.prediction.getBySlug.useQuery({
+    slug: data.names.seriesSlug || "",
+  });
+
+  useEffect(() => {
+    if (!prediction?.score) {
+      return;
+    }
+    setSeriesPrediction(prediction.score);
+  }, [prediction]);
+
   const [seriesPrediction, setSeriesPrediction] = useState<string>(
     prediction?.score || ""
   );
-
-  console.log({ score: prediction?.score, seriesPrediction });
 
   const predictionMutation = api.prediction.upsert.useMutation();
   function onChangePrediction(slug: string | undefined, score: string) {
@@ -235,6 +239,7 @@ function SeriesItem({
     topSeed.seriesRecord.wins,
     bottomSeed.seriesRecord.wins,
   ].some((value) => value === winsRequiredToAdvance);
+
   const isPredictionCorrect = checkPrediction(
     prediction?.score || "",
     topSeed.seriesRecord.wins,
@@ -245,7 +250,7 @@ function SeriesItem({
   const bottomSeedColor = teamNameToColor[bottomSeed.team.name] ?? "";
 
   return (
-    <div className="flex transform flex-col items-center gap-4 rounded-md bg-gradient-to-tl from-sky-200 to-white p-4 drop-shadow-lg duration-100 ease-in-out md:hover:scale-105">
+    <div className="flex w-full transform flex-col items-center gap-4 rounded-md bg-gradient-to-tl from-sky-200 to-white p-4 drop-shadow-lg duration-100 ease-in-out md:hover:scale-105">
       <div className="flex w-full flex-col gap-2 text-center">
         <span className="text-xl font-semibold">{topSeed.team.name}</span>
         <div className="flex w-full items-center">
@@ -281,15 +286,15 @@ function SeriesItem({
           Choose prediction
         </option>
         <optgroup label={`${topSeed.team.name} win`}></optgroup>
-        <option value="4-0">4-0</option>
-        <option value="4-1">4-1</option>
-        <option value="4-2">4-2</option>
-        <option value="4-3">4-3</option>
+        <option value="4-0">4-0 {topSeed.team.name}</option>
+        <option value="4-1">4-1 {topSeed.team.name}</option>
+        <option value="4-2">4-2 {topSeed.team.name}</option>
+        <option value="4-3">4-3 {topSeed.team.name}</option>
         <optgroup label={`${bottomSeed.team.name} win`}></optgroup>
-        <option value="0-4">4-0</option>
-        <option value="1-4">4-1 </option>
-        <option value="2-4">4-2 </option>
-        <option value="3-4">4-3 </option>
+        <option value="0-4">4-0 {bottomSeed.team.name}</option>
+        <option value="1-4">4-1 {bottomSeed.team.name}</option>
+        <option value="2-4">4-2 {bottomSeed.team.name}</option>
+        <option value="3-4">4-3 {bottomSeed.team.name}</option>
       </select>
 
       {predictionMutation.error && (
