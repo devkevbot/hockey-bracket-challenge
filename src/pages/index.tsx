@@ -303,7 +303,7 @@ function SeriesItem({
           <div className="flex items-center gap-2">
             <FontAwesomeIcon
               icon={faLock}
-              className="aspect-square w-8 text-yellow-500"
+              className="aspect-square h-8 text-yellow-500"
             />
             <span className="font-semibold">Prediction locked</span>
           </div>
@@ -311,7 +311,7 @@ function SeriesItem({
           <div className="flex items-center gap-2">
             <FontAwesomeIcon
               icon={faSquarePen}
-              className="aspect-square w-8 text-blue-800"
+              className="aspect-square h-8 text-blue-800"
             />
             <span className="font-semibold">Prediction editable</span>
           </div>
@@ -321,7 +321,7 @@ function SeriesItem({
             <div className="flex items-center gap-2">
               <FontAwesomeIcon
                 icon={faSquareCheck}
-                className="aspect-square w-8 text-green-500"
+                className="aspect-square h-8 text-green-500"
               />
               <span className="font-semibold">You were right!</span>
             </div>
@@ -329,7 +329,7 @@ function SeriesItem({
             <div className="flex items-center gap-2">
               <FontAwesomeIcon
                 icon={faSquareXmark}
-                className="aspect-square w-8 text-red-600"
+                className="aspect-square h-8 text-red-600"
               />
               <span className="font-semibold">You were wrong!</span>
             </div>
