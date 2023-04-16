@@ -12,21 +12,15 @@ A small project used to record my predictions for the 2023 NHL Playoffs. Availab
 1. Click "Sign in" and sign in with your Discord account
 1. For each available series, select your prediction
 
-### Prediction states
+### Prediction outcomes
 
-#### Editing
+Your "score" is based on how correct you were; maximum points are earned for guessing _both_ the correct series winner _and_ the correct series length in games.
 
-Predictions can be edited up until Game 1 of a series starts.
+The breakdown is as follows:
 
-- **Editable**: Predicates are editable
-- **Locked in**: Predictions are no longer editable
-
-#### Correctness
-
-The correctness of a prediction is determined when either team in a series reaches 4 wins, the number of wins needed to win a best-of-seven series.
-
-- **Correct**: The prediction was exactly correct
-- **Incorrect**: The prediction was not exactly correct
+- **Exactly correct** Both the series winner and series length is correct.
+- **Partially correct** Only the series winner or series length is correct.
+- **Incorrect** Both the series winner and series length is incorrect.
 
 ---
 

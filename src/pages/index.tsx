@@ -10,7 +10,9 @@ import {
   faSquareCheck,
   faLock,
   faSquareXmark,
-  faSquarePen,
+  faSquareMinus,
+  faClock,
+  faMinus,
 } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "react-toastify";
 
@@ -235,7 +237,7 @@ function SeriesItem({
   let hasSeriesStarted = false;
   const currentGameStartTime = data.currentGame.seriesSummary.gameTime;
   if (currentGameStartTime) {
-    hasSeriesStarted = new Date(currentGameStartTime) <= new Date();
+    hasSeriesStarted = new Date() >= new Date(currentGameStartTime);
   }
   const winsRequiredToAdvance = 4;
   const isSeriesOver = [
@@ -243,11 +245,15 @@ function SeriesItem({
     bottomSeed.seriesRecord.wins,
   ].some((value) => value === winsRequiredToAdvance);
 
-  const isPredictionCorrect = checkPrediction(
-    prediction?.score || "",
-    topSeed.seriesRecord.wins,
-    bottomSeed.seriesRecord.wins
-  );
+  const predictionOutcome = getPredictionOutcome({
+    hasSeriesStarted,
+    isSeriesOver,
+    predictedScore: prediction?.score || "",
+    topSeedTeamName: topSeed.team.name,
+    topSeedTeamScore: topSeed.seriesRecord.wins.toString(),
+    bottomSeedTeamName: bottomSeed.team.name,
+    bottomSeedTeamScore: bottomSeed.seriesRecord.wins.toString(),
+  });
 
   const topSeedColor = teamNameToColor[topSeed.team.name] ?? "";
   const bottomSeedColor = teamNameToColor[bottomSeed.team.name] ?? "";
@@ -313,62 +319,184 @@ function SeriesItem({
       </select>
 
       <div className="md:text-md flex flex-col gap-4 text-sm">
-        {hasSeriesStarted ? (
+        {predictionOutcome === "series-in-progress" && (
           <div className="flex items-center gap-2">
             <FontAwesomeIcon
               icon={faLock}
               className="aspect-square h-8 text-yellow-500"
             />
-            <span className="font-semibold">Prediction locked</span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <FontAwesomeIcon
-              icon={faSquarePen}
-              className="aspect-square h-8 text-blue-800"
-            />
-            <span className="font-semibold">Prediction editable</span>
+            <span className="font-semibold">Series in progress</span>
           </div>
         )}
-        {isSeriesOver &&
-          (isPredictionCorrect ? (
-            <div className="flex items-center gap-2">
-              <FontAwesomeIcon
-                icon={faSquareCheck}
-                className="aspect-square h-8 text-green-500"
-              />
-              <span className="font-semibold">You were right!</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <FontAwesomeIcon
-                icon={faSquareXmark}
-                className="aspect-square h-8 text-red-600"
-              />
-              <span className="font-semibold">You were wrong!</span>
-            </div>
-          ))}
+        {predictionOutcome === "series-not-started" && (
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon
+              icon={faClock}
+              className="aspect-square h-8 text-blue-500"
+            />
+            <span className="font-semibold">Series not started</span>
+          </div>
+        )}
+        {predictionOutcome === "no-prediction-made" && (
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon
+              icon={faMinus}
+              className="aspect-square h-8 text-yellow-500"
+            />
+            <span className="font-semibold">
+              No prediction prior to series start
+            </span>
+          </div>
+        )}
+        {predictionOutcome === "exactly-correct" && (
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon
+              icon={faSquareCheck}
+              className="aspect-square h-8 text-green-500"
+            />
+            <span className="font-semibold">Correct prediction</span>
+          </div>
+        )}
+
+        {predictionOutcome === "only-series-length-correct" && (
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon
+              icon={faSquareMinus}
+              className="aspect-square h-8 text-orange-500"
+            />
+            <span className="font-semibold">
+              Correct series length but not winner
+            </span>
+          </div>
+        )}
+        {predictionOutcome === "only-winner-correct" && (
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon
+              icon={faSquareMinus}
+              className="aspect-square h-8 text-orange-500"
+            />
+            <span className="font-semibold">
+              Correct winner but not series length
+            </span>
+          </div>
+        )}
+        {predictionOutcome === "incorrect" && (
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon
+              icon={faSquareXmark}
+              className="aspect-square h-8 text-red-600"
+            />
+            <span className="font-semibold">Incorrect prediction</span>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function checkPrediction(
-  prediction: string,
-  topSeedWins: number,
-  bototmSeedWins: number
-) {
-  if (!prediction) {
-    return false;
+type PredictionOutcome =
+  | "series-in-progress"
+  | "series-not-started"
+  | "no-prediction-made"
+  | "only-winner-correct"
+  | "only-series-length-correct"
+  | "incorrect"
+  | "exactly-correct";
+
+function getPredictionOutcome({
+  hasSeriesStarted,
+  isSeriesOver,
+  predictedScore,
+  topSeedTeamName,
+  topSeedTeamScore,
+  bottomSeedTeamName,
+  bottomSeedTeamScore,
+}: {
+  hasSeriesStarted: boolean;
+  isSeriesOver: boolean;
+  predictedScore: string;
+  topSeedTeamName: string;
+  topSeedTeamScore: string;
+  bottomSeedTeamName: string;
+  bottomSeedTeamScore: string;
+}): PredictionOutcome {
+  if (predictedScore && hasSeriesStarted && !isSeriesOver) {
+    return "series-in-progress";
   }
 
-  const [topSeedPredictedWins, lowSeedPredictedWins] = prediction.split("-");
+  if (!hasSeriesStarted) {
+    return "series-not-started";
+  }
+
+  if (!predictedScore && hasSeriesStarted) {
+    return "no-prediction-made";
+  }
+
+  const [topSeedPredictedWins, lowSeedPredictedWins] =
+    predictedScore.split("-");
   if (!topSeedPredictedWins || !lowSeedPredictedWins) {
-    return false;
+    return "no-prediction-made";
   }
 
-  return (
-    topSeedPredictedWins === topSeedWins.toString() &&
-    lowSeedPredictedWins === bototmSeedWins.toString()
-  );
+  const predictedWinningTeamName =
+    topSeedPredictedWins > lowSeedPredictedWins
+      ? topSeedTeamName
+      : bottomSeedTeamName;
+  const predictedLosingTeamName =
+    topSeedPredictedWins > lowSeedPredictedWins
+      ? bottomSeedTeamName
+      : topSeedTeamName;
+  const predictedWinningTeamScore =
+    topSeedPredictedWins > lowSeedPredictedWins
+      ? topSeedPredictedWins
+      : lowSeedPredictedWins;
+  const predictedLosingTeamScore =
+    topSeedPredictedWins > lowSeedPredictedWins
+      ? lowSeedPredictedWins
+      : topSeedPredictedWins;
+
+  const actualWinningTeamName =
+    topSeedTeamScore > bottomSeedTeamScore
+      ? topSeedTeamName
+      : bottomSeedTeamName;
+  const actualLosingTeamName =
+    topSeedTeamScore > bottomSeedTeamScore
+      ? bottomSeedTeamName
+      : topSeedTeamName;
+  const actualWinningTeamScore =
+    topSeedTeamScore > bottomSeedTeamScore
+      ? topSeedTeamScore
+      : bottomSeedTeamScore;
+  const actualLosingTeamScore =
+    topSeedTeamScore > bottomSeedTeamScore
+      ? bottomSeedTeamScore
+      : topSeedTeamScore;
+
+  const isWinningTeamNameCorrect =
+    predictedWinningTeamName === actualWinningTeamName;
+  const isLosingTeamNameCorrect =
+    predictedLosingTeamName === actualLosingTeamName;
+  const isWinningTeamScoreCorrect =
+    predictedWinningTeamScore === actualWinningTeamScore;
+  const isLosingTeamScoreCorrect =
+    predictedLosingTeamScore === actualLosingTeamScore;
+
+  if (
+    isWinningTeamNameCorrect &&
+    isLosingTeamNameCorrect &&
+    isWinningTeamScoreCorrect &&
+    isLosingTeamScoreCorrect
+  ) {
+    return "exactly-correct";
+  }
+
+  if (isWinningTeamNameCorrect) {
+    return "only-winner-correct";
+  }
+
+  if (isWinningTeamScoreCorrect && isLosingTeamScoreCorrect) {
+    return "only-series-length-correct";
+  }
+
+  return "incorrect";
 }
