@@ -253,17 +253,23 @@ function SeriesItem({
   return (
     <div className="flex w-full transform flex-col items-center gap-4 rounded-md bg-gradient-to-tl from-sky-200 to-white p-4 drop-shadow-lg duration-100 ease-in-out md:hover:scale-105">
       <div className="flex w-full flex-col gap-2 text-center">
-        <span className="text-md font-semibold md:text-lg">
-          {topSeed.team.name}
-        </span>
+        <div className="text-md flex items-center justify-center gap-2 font-semibold md:text-lg">
+          <span className={`${topSeedColor} rounded-full p-1.5`}></span>
+          <span>
+            {topSeed.team.name} ({topSeed.seed.type})
+          </span>
+        </div>
         <div className="flex w-full items-center">
           <hr className="w-full border-2 border-black" />
           <span className="px-2 font-bold italic">VS</span>
           <hr className="w-full border-2 border-black" />
         </div>
-        <span className="text-md font-semibold md:text-lg">
-          {bottomSeed.team.name}
-        </span>
+        <div className="text-md flex items-center justify-center gap-2 font-semibold md:text-lg">
+          <span className={`${bottomSeedColor} rounded-full p-1.5`}></span>
+          <span>
+            {bottomSeed.team.name} ({bottomSeed.seed.type})
+          </span>
+        </div>
       </div>
       <div className="text-md grid w-full grid-cols-2 rounded-md text-center font-semibold text-white md:text-lg">
         <span
