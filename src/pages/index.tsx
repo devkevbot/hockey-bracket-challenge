@@ -38,7 +38,7 @@ function Home(props: InferGetStaticPropsType<typeof getStaticProps>) {
           <div className="flex flex-col items-center justify-center gap-4">
             {status === "unauthenticated" && (
               <button
-                className="bg-bg-slate-600 rounded-lg px-10 py-3 font-semibold text-white no-underline transition hover:bg-black/20"
+                className="rounded-lg bg-black px-10 py-3 font-semibold text-white no-underline transition hover:bg-black/20"
                 onClick={() => void signIn()}
               >
                 {"Sign in"}
