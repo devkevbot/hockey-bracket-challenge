@@ -288,7 +288,7 @@ function SeriesItem({
         Series Prediction
       </h3>
       <select
-        className="w-full cursor-pointer rounded-md bg-slate-600 px-4 py-1 text-white disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full cursor-pointer rounded-md bg-black px-4 py-1 text-white disabled:cursor-not-allowed disabled:opacity-50"
         value={seriesPrediction}
         onChange={(event) =>
           onChangePrediction(data.names.seriesSlug, event.target.value)
