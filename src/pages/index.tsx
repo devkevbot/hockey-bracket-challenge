@@ -38,7 +38,7 @@ function Home(props: InferGetStaticPropsType<typeof getStaticProps>) {
           <div className="flex flex-col items-center justify-center gap-4">
             {status === "unauthenticated" && (
               <button
-                className="rounded-lg bg-black px-10 py-3 font-semibold text-white no-underline transition hover:bg-black/20"
+                className="bg-bg-slate-600 rounded-lg px-10 py-3 font-semibold text-white no-underline transition hover:bg-black/20"
                 onClick={() => void signIn()}
               >
                 {"Sign in"}
@@ -253,15 +253,19 @@ function SeriesItem({
   return (
     <div className="flex w-full transform flex-col items-center gap-4 rounded-md bg-gradient-to-tl from-sky-200 to-white p-4 drop-shadow-lg duration-100 ease-in-out md:hover:scale-105">
       <div className="flex w-full flex-col gap-2 text-center">
-        <span className="text-xl font-semibold">{topSeed.team.name}</span>
+        <span className="text-md font-semibold md:text-lg">
+          {topSeed.team.name}
+        </span>
         <div className="flex w-full items-center">
           <hr className="w-full border-2 border-black" />
           <span className="px-2 font-bold italic">VS</span>
           <hr className="w-full border-2 border-black" />
         </div>
-        <span className="text-xl font-semibold">{bottomSeed.team.name}</span>
+        <span className="text-md font-semibold md:text-lg">
+          {bottomSeed.team.name}
+        </span>
       </div>
-      <div className="grid w-full grid-cols-2 rounded-md text-center text-lg font-semibold text-white">
+      <div className="text-md grid w-full grid-cols-2 rounded-md text-center font-semibold text-white md:text-lg">
         <span
           className={`rounded-bl-md rounded-tl-md border-b-2 border-l-2 border-t-2 ${topSeedColor} py-2`}
         >
@@ -274,9 +278,11 @@ function SeriesItem({
         </span>
       </div>
 
-      <h3 className="-mb-2 text-xl font-semibold">Series Prediction</h3>
+      <h3 className="text-md -mb-2 font-semibold md:text-lg">
+        Series Prediction
+      </h3>
       <select
-        className="w-full cursor-pointer rounded-md bg-black px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full cursor-pointer rounded-md bg-slate-600 px-4 py-1 text-white disabled:cursor-not-allowed disabled:opacity-50"
         value={seriesPrediction}
         onChange={(event) =>
           onChangePrediction(data.names.seriesSlug, event.target.value)
@@ -304,7 +310,7 @@ function SeriesItem({
         </p>
       )}
 
-      <div className="flex w-full flex-col gap-4">
+      <div className="md:text-md flex flex-col gap-4 text-sm">
         {hasSeriesStarted ? (
           <div className="flex items-center gap-2">
             <FontAwesomeIcon
