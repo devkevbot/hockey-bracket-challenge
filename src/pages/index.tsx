@@ -12,6 +12,7 @@ import {
   faSquareXmark,
   faSquarePen,
 } from "@fortawesome/free-solid-svg-icons";
+import { toast } from "react-toastify";
 
 function Home(props: InferGetStaticPropsType<typeof getStaticProps>) {
   const { data: sessionData, status } = useSession();
@@ -220,8 +221,9 @@ function SeriesItem({
       return;
     }
 
-    setSeriesPrediction(score);
     predictionMutation.mutate({ slug, score });
+    setSeriesPrediction(score);
+    toast.success("Saved prediction");
   }
 
   const topSeed = data.matchupTeams?.find((team) => team.seed.isTop);
@@ -309,12 +311,6 @@ function SeriesItem({
         <option value="2-4">4-2 {bottomSeed.team.name}</option>
         <option value="3-4">4-3 {bottomSeed.team.name}</option>
       </select>
-
-      {predictionMutation.error && (
-        <p className="text-md font-semibold text-red-600">
-          Couldn&apos;t save prediction! {predictionMutation.error.message}
-        </p>
-      )}
 
       <div className="md:text-md flex flex-col gap-4 text-sm">
         {hasSeriesStarted ? (

@@ -1,6 +1,8 @@
 import { type AppType } from "next/app";
 import { type Session } from "next-auth";
 import { SessionProvider } from "next-auth/react";
+import "react-toastify/dist/ReactToastify.css";
+import { ToastContainer } from "react-toastify";
 
 import { api } from "~/utils/api";
 
@@ -13,6 +15,11 @@ const MyApp: AppType<{ session: Session | null }> = ({
   return (
     <SessionProvider session={session}>
       <Component {...pageProps} />
+      <ToastContainer
+        position="bottom-center"
+        autoClose={1500}
+        className="text-md"
+      />
     </SessionProvider>
   );
 };
