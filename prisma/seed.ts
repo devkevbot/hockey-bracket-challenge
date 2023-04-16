@@ -2,6 +2,7 @@ import { prisma } from "../src/server/db";
 import { roundOneSeries } from "./roundOne";
 
 async function main() {
+  await prisma.account.deleteMany();
   await prisma.prediction.deleteMany();
   await prisma.series.deleteMany();
 
