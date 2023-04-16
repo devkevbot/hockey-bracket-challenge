@@ -38,7 +38,7 @@ The correctness of a prediction is determined when either team in a series reach
 
 ### Signed in, Mobile
 
-![image](https://user-images.githubusercontent.com/31908183/232255764-42ef4f53-d9a6-446c-9db8-59025d650ddf.png)
+![image](https://user-images.githubusercontent.com/31908183/232259969-65886886-9535-423f-8470-b010f932468e.png)
 
 ### Signed out, Desktop
 
