@@ -232,6 +232,7 @@ const teamNameToColor: Record<NhlTeamName, string> = {
 };
 
 type PredictionUpsertInput = RouterInputs["prediction"]["upsert"];
+type PredictionScore = PredictionUpsertInput["score"];
 
 function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
   const {
@@ -242,18 +243,17 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
     slug: data.names.seriesSlug,
   });
 
-  const [seriesPrediction, setSeriesPrediction] = useState<string>(
-    prediction?.score || ""
-  );
+  const [predictedScore, setPredictedScore] =
+    useState<PredictionScore>("no-prediction");
 
   useEffect(() => {
     if (!isSuccessPrediction || !prediction?.score) return;
-    setSeriesPrediction(prediction.score);
+    setPredictedScore(prediction.score as PredictionScore);
   }, [prediction, isSuccessPrediction]);
 
   const predictionMutation = api.prediction.upsert.useMutation({
     onSuccess({ score }) {
-      setSeriesPrediction(score);
+      setPredictedScore(score as PredictionScore);
       toast.success("Saved prediction");
     },
     onError() {
@@ -272,32 +272,35 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
   }
 
   const seriesProgression = getSeriesProgression({
-    topSeedWins: topSeed.seriesRecord.wins,
-    bottomSeedWins: bottomSeed.seriesRecord.wins,
+    topSeedScore: topSeed.seriesRecord.wins,
+    bottomSeedScore: bottomSeed.seriesRecord.wins,
     currentGameStartTime: data.currentGame.seriesSummary.gameTime,
   });
 
-  const predictionOutcome = getPredictionOutcome({
+  const predictionOutcome = getPredictionResult({
     seriesProgression,
-    predictedScore: seriesPrediction,
+    predictedScore,
     topSeedTeamName: topSeed.team.name,
-    topSeedTeamScore: topSeed.seriesRecord.wins.toString(),
+    topSeedActualScore: topSeed.seriesRecord.wins,
     bottomSeedTeamName: bottomSeed.team.name,
-    bottomSeedTeamScore: bottomSeed.seriesRecord.wins.toString(),
+    bottomSeedActualScore: bottomSeed.seriesRecord.wins,
   });
+
+  const { predicted } = getWinnerAndLoser({
+    seriesProgression,
+    predictedScore,
+    topSeedTeamName: topSeed.team.name,
+    topSeedActualScore: topSeed.seriesRecord.wins,
+    bottomSeedTeamName: bottomSeed.team.name,
+    bottomSeedActualScore: bottomSeed.seriesRecord.wins,
+  });
+
+  const predictedWinnerColor = predicted.winner
+    ? teamNameToColor[predicted.winner.name]
+    : "bg-black";
 
   const topSeedColor = teamNameToColor[topSeed.team.name];
   const bottomSeedColor = teamNameToColor[bottomSeed.team.name];
-
-  const predictedWinningTeamName = getPredictedWinningTeamName({
-    predictedScore: seriesPrediction,
-    topSeedTeamName: topSeed.team.name,
-    bottomSeedTeamName: bottomSeed.team.name,
-  });
-
-  const predictedWinnerColor =
-    (predictedWinningTeamName && teamNameToColor[predictedWinningTeamName]) ||
-    "bg-black";
 
   if (isLoadingPrediction) {
     return <SeriesItemSkeletonLoader />;
@@ -342,16 +345,16 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
       </h3>
       <select
         className={`w-full cursor-pointer rounded-md px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 ${predictedWinnerColor}`}
-        value={seriesPrediction}
+        value={predictedScore}
         onChange={(event) =>
           onChangePrediction({
             slug: data.names.seriesSlug,
-            score: event.target.value,
+            score: event.target.value as PredictionScore,
           })
         }
         disabled={seriesProgression !== "series-not-started"}
       >
-        <option disabled className="hidden" value="">
+        <option disabled className="hidden" value="no-prediction">
           Choose prediction
         </option>
         <optgroup label={`${topSeed.team.name} win`}></optgroup>
@@ -367,15 +370,6 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
       </select>
 
       <div className="md:text-md flex flex-col gap-4 text-sm">
-        {predictionOutcome === "series-in-progress" && (
-          <div className="flex items-center gap-2">
-            <FontAwesomeIcon
-              icon={faLock}
-              className="aspect-square h-8 text-yellow-500"
-            />
-            <span className="font-semibold">Series in progress</span>
-          </div>
-        )}
         {predictionOutcome === "series-not-started" && (
           <div className="flex items-center gap-2">
             <FontAwesomeIcon
@@ -385,15 +379,22 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
             <span className="font-semibold">Series not started</span>
           </div>
         )}
+        {predictionOutcome === "series-in-progress" && (
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon
+              icon={faLock}
+              className="aspect-square h-8 text-yellow-500"
+            />
+            <span className="font-semibold">Series in progress</span>
+          </div>
+        )}
         {predictionOutcome === "prediction-not-made" && (
           <div className="flex items-center gap-2">
             <FontAwesomeIcon
               icon={faMinus}
               className="aspect-square h-8 text-yellow-500"
             />
-            <span className="font-semibold">
-              No prediction prior to series start
-            </span>
+            <span className="font-semibold">Prediction not made</span>
           </div>
         )}
         {predictionOutcome === "prediction-exactly-correct" && (
@@ -413,7 +414,7 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
               className="aspect-square h-8 text-orange-500"
             />
             <span className="font-semibold">
-              Correct series length but not winner
+              Partially correct: predicted series length
             </span>
           </div>
         )}
@@ -424,7 +425,7 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
               className="aspect-square h-8 text-orange-500"
             />
             <span className="font-semibold">
-              Correct winner but not series length
+              Partially correct: predicted winner
             </span>
           </div>
         )}
@@ -447,17 +448,17 @@ type SeriesProgression =
   | "series-in-progress"
   | "series-finished";
 type SeriesProgressionInputs = {
-  topSeedWins: number;
-  bottomSeedWins: number;
+  topSeedScore: number;
+  bottomSeedScore: number;
   currentGameStartTime?: string;
 };
 
 function getSeriesProgression({
-  topSeedWins,
-  bottomSeedWins,
+  topSeedScore,
+  bottomSeedScore,
   currentGameStartTime,
 }: SeriesProgressionInputs): SeriesProgression {
-  const isSeriesOver = getIsSeriesOver(topSeedWins, bottomSeedWins);
+  const isSeriesOver = getIsSeriesOver(topSeedScore, bottomSeedScore);
   if (isSeriesOver) return "series-finished";
 
   const isSeriesStarted = getIsSeriesStarted(currentGameStartTime);
@@ -467,10 +468,10 @@ function getSeriesProgression({
 }
 
 function getIsSeriesOver(
-  topSeedWins: SeriesProgressionInputs["topSeedWins"],
-  bottomSeedWins: SeriesProgressionInputs["bottomSeedWins"]
+  topSeedScore: SeriesProgressionInputs["topSeedScore"],
+  bottomSeedScore: SeriesProgressionInputs["bottomSeedScore"]
 ) {
-  const isSeriesOver = [topSeedWins, bottomSeedWins].some(
+  const isSeriesOver = [topSeedScore, bottomSeedScore].some(
     (value) => value === WINS_REQUIRED_IN_SERIES
   );
   return isSeriesOver;
@@ -485,7 +486,7 @@ function getIsSeriesStarted(
   return false;
 }
 
-type PredictionOutcome =
+type PredictionResult =
   | Extract<SeriesProgression, "series-not-started" | "series-in-progress">
   | "prediction-not-made"
   | "only-winner-correct"
@@ -493,122 +494,186 @@ type PredictionOutcome =
   | "prediction-totally-incorrect"
   | "prediction-exactly-correct";
 
-function getPredictionOutcome({
+function getPredictionResult({
   seriesProgression,
   predictedScore,
   topSeedTeamName,
-  topSeedTeamScore,
+  topSeedActualScore,
   bottomSeedTeamName,
-  bottomSeedTeamScore,
+  bottomSeedActualScore,
 }: {
   seriesProgression: SeriesProgression;
-  predictedScore: string;
+  predictedScore: PredictionScore;
   topSeedTeamName: NhlTeamName;
-  topSeedTeamScore: string;
+  topSeedActualScore: number;
   bottomSeedTeamName: NhlTeamName;
-  bottomSeedTeamScore: string;
-}): PredictionOutcome {
-  if (predictedScore && seriesProgression === "series-in-progress") {
-    return seriesProgression;
-  }
-
+  bottomSeedActualScore: number;
+}): PredictionResult {
   if (seriesProgression === "series-not-started") {
     return seriesProgression;
   }
 
-  if (!predictedScore && seriesProgression === "series-in-progress") {
-    return "prediction-not-made";
+  // Locked: if the series has started, the user cannot change their prediction.
+  if (
+    predictedScore !== "no-prediction" &&
+    seriesProgression === "series-in-progress"
+  ) {
+    return seriesProgression;
   }
-
-  const [topSeedPredictedWins, lowSeedPredictedWins] =
-    predictedScore.split("-");
-  if (!topSeedPredictedWins || !lowSeedPredictedWins) {
-    return "prediction-not-made";
-  }
-
-  const predictedWinningTeamName =
-    topSeedPredictedWins > lowSeedPredictedWins
-      ? topSeedTeamName
-      : bottomSeedTeamName;
-  const predictedLosingTeamName =
-    topSeedPredictedWins > lowSeedPredictedWins
-      ? bottomSeedTeamName
-      : topSeedTeamName;
-  const predictedWinningTeamScore =
-    topSeedPredictedWins > lowSeedPredictedWins
-      ? topSeedPredictedWins
-      : lowSeedPredictedWins;
-  const predictedLosingTeamScore =
-    topSeedPredictedWins > lowSeedPredictedWins
-      ? lowSeedPredictedWins
-      : topSeedPredictedWins;
-
-  const actualWinningTeamName =
-    topSeedTeamScore > bottomSeedTeamScore
-      ? topSeedTeamName
-      : bottomSeedTeamName;
-  const actualLosingTeamName =
-    topSeedTeamScore > bottomSeedTeamScore
-      ? bottomSeedTeamName
-      : topSeedTeamName;
-  const actualWinningTeamScore =
-    topSeedTeamScore > bottomSeedTeamScore
-      ? topSeedTeamScore
-      : bottomSeedTeamScore;
-  const actualLosingTeamScore =
-    topSeedTeamScore > bottomSeedTeamScore
-      ? bottomSeedTeamScore
-      : topSeedTeamScore;
-
-  const isWinningTeamNameCorrect =
-    predictedWinningTeamName === actualWinningTeamName;
-  const isLosingTeamNameCorrect =
-    predictedLosingTeamName === actualLosingTeamName;
-  const isWinningTeamScoreCorrect =
-    predictedWinningTeamScore === actualWinningTeamScore;
-  const isLosingTeamScoreCorrect =
-    predictedLosingTeamScore === actualLosingTeamScore;
 
   if (
-    isWinningTeamNameCorrect &&
-    isLosingTeamNameCorrect &&
-    isWinningTeamScoreCorrect &&
-    isLosingTeamScoreCorrect
+    predictedScore === "no-prediction" &&
+    seriesProgression === "series-in-progress"
   ) {
+    return "prediction-not-made";
+  }
+
+  const { predicted, actual } = getWinnerAndLoser({
+    seriesProgression,
+    predictedScore,
+    topSeedTeamName,
+    topSeedActualScore,
+    bottomSeedTeamName,
+    bottomSeedActualScore,
+  });
+
+  // If we don't get data from getWinnerAndLoser(), that means the one or more
+  // of the following is true:
+  //
+  // 1. The user didn't make a prediction prior to the series starting, in which
+  //    case their prediction should be considered incorrect.
+  // 2. We won't know the actual winner/loser because the series isn't finished.
+  //    A check for the series being over should have been done in an above
+  //    black of code.
+  if (
+    !predicted.winner ||
+    !predicted.loser ||
+    !actual.winner ||
+    !actual.loser
+  ) {
+    return "prediction-totally-incorrect";
+  }
+
+  const isWinnerCorrect = predicted.winner.name === actual.winner.name;
+
+  const predictedSeriesLength = predicted.winner.score + predicted.loser.score;
+  const actualSeriesLength = actual.winner.score + actual.loser.score;
+  const isSeriesLengthCorrect = predictedSeriesLength === actualSeriesLength;
+
+  if (isWinnerCorrect && isSeriesLengthCorrect) {
     return "prediction-exactly-correct";
   }
-
-  if (isWinningTeamNameCorrect) {
+  if (isWinnerCorrect) {
     return "only-winner-correct";
   }
-
-  if (isWinningTeamScoreCorrect && isLosingTeamScoreCorrect) {
+  if (isSeriesLengthCorrect) {
     return "only-series-length-correct";
   }
 
   return "prediction-totally-incorrect";
 }
 
-function getPredictedWinningTeamName({
+type SeriesWinnerLoser = {
+  predicted: {
+    winner: TeamInSeries | null;
+    loser: TeamInSeries | null;
+  };
+  actual: {
+    winner: TeamInSeries | null;
+    loser: TeamInSeries | null;
+  };
+};
+type TeamInSeries = {
+  name: NhlTeamName;
+  score: number;
+};
+
+function getWinnerAndLoser({
+  seriesProgression,
   predictedScore,
   topSeedTeamName,
+  topSeedActualScore,
   bottomSeedTeamName,
+  bottomSeedActualScore,
 }: {
-  predictedScore: string;
+  seriesProgression: SeriesProgression;
+  predictedScore: PredictionScore;
   topSeedTeamName: NhlTeamName;
+  topSeedActualScore: number;
   bottomSeedTeamName: NhlTeamName;
-}): NhlTeamName | null {
-  const [topSeedPredictedWins, lowSeedPredictedWins] =
-    predictedScore.split("-");
-  if (!topSeedPredictedWins || !lowSeedPredictedWins) {
-    return null;
+  bottomSeedActualScore: number;
+}) {
+  const result: SeriesWinnerLoser = {
+    predicted: {
+      winner: null,
+      loser: null,
+    },
+    actual: {
+      winner: null,
+      loser: null,
+    },
+  };
+
+  // We only want to attempt to parse the user prediction if they cast one.
+  if (predictedScore !== "no-prediction") {
+    const [topSeedPredictedScore, bottomSeedPredictedScore] = predictedScore
+      .split("-")
+      .map((val) => parseInt(val, 10));
+    if (
+      topSeedPredictedScore === undefined ||
+      bottomSeedPredictedScore === undefined
+    ) {
+      // We could also check if each score is a sane number, but if that's not
+      // the case at this point, something very bad has happened.
+      return result;
+    }
+
+    if (topSeedPredictedScore > bottomSeedPredictedScore) {
+      result.predicted.winner = {
+        name: topSeedTeamName,
+        score: topSeedPredictedScore,
+      };
+      result.predicted.loser = {
+        name: bottomSeedTeamName,
+        score: bottomSeedPredictedScore,
+      };
+    } else if (bottomSeedPredictedScore > topSeedPredictedScore) {
+      result.predicted.winner = {
+        name: bottomSeedTeamName,
+        score: bottomSeedPredictedScore,
+      };
+      result.predicted.loser = {
+        name: topSeedTeamName,
+        score: topSeedPredictedScore,
+      };
+    }
   }
 
-  const predictedWinningTeamName =
-    topSeedPredictedWins > lowSeedPredictedWins
-      ? topSeedTeamName
-      : bottomSeedTeamName;
-  return predictedWinningTeamName;
+  // We don't know the actual winner/loser yet, so escape early to avoid setting
+  // the result.actual data.
+  if (seriesProgression !== "series-finished") {
+    if (topSeedActualScore > bottomSeedActualScore) {
+      result.actual.winner = {
+        name: topSeedTeamName,
+        score: topSeedActualScore,
+      };
+      result.actual.loser = {
+        name: bottomSeedTeamName,
+        score: bottomSeedActualScore,
+      };
+    } else if (bottomSeedActualScore > topSeedActualScore) {
+      result.actual.winner = {
+        name: bottomSeedTeamName,
+        score: bottomSeedActualScore,
+      };
+      result.actual.loser = {
+        name: topSeedTeamName,
+        score: topSeedActualScore,
+      };
+    }
+  }
+
+  return result;
 }
 
 function SeriesItemSkeletonLoader() {
