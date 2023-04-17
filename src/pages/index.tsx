@@ -91,7 +91,7 @@ function Home(props: StaticProps) {
   const { data: sessionData, status } = useSession();
 
   return (
-    <>
+    <div className="bg-gradient-to-b from-sky-500 to-sky-200">
       <Head>
         <title>Hockey Bracket Challenge - 2023 Edition</title>
         <meta
@@ -100,15 +100,20 @@ function Home(props: StaticProps) {
         />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-sky-500 to-sky-200">
+      <main className="flex min-h-screen flex-col items-center justify-center">
         <div className="container flex flex-col items-center justify-center gap-4 px-4 py-16 md:gap-8 xl:gap-12">
-          <h1 className="text-center text-5xl font-extrabold tracking-tight text-white sm:text-[5rem]">
-            NHL Playoff Predictions
-          </h1>
-          <h2 className="text-4xl font-bold tracking-tight text-black sm:text-[4rem]">
+          <div className="flex flex-col items-center gap-4 xl:flex-row xl:gap-8">
+            <picture>
+              <source media="(min-width: 640px)" srcSet="puck-128.png" />
+              <img alt="" src="puck-64.png" />
+            </picture>
+            <h1 className="text-center text-5xl font-extrabold tracking-tight text-white xl:text-[5rem]">
+              NHL Playoff Predictions
+            </h1>
+          </div>
+          <h2 className="text-4xl font-bold tracking-tight text-black xl:text-[4rem]">
             2023 Edition
           </h2>
-
           <div className="flex flex-col items-center justify-center gap-4">
             {status === "unauthenticated" && (
               <button
@@ -139,7 +144,12 @@ function Home(props: StaticProps) {
           </div>
         </div>
       </main>
-    </>
+      <footer className="bg-sky-200 py-4 text-center font-semibold">
+        <a href="https://www.flaticon.com/free-icons/puck" title="puck icons">
+          Puck icons created by Freepik - Flaticon
+        </a>
+      </footer>
+    </div>
   );
 }
 
