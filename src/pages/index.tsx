@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Head from "next/head";
 import { signIn, useSession } from "next-auth/react";
-import { api } from "~/utils/api";
+import { type RouterInputs, api } from "~/utils/api";
 import { type InferGetStaticPropsType } from "next";
 import { z } from "zod";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -36,7 +36,7 @@ export async function getStaticProps() {
               matchupShortName: z.string(),
               teamAbbreviationA: z.string(),
               teamAbbreviationB: z.string(),
-              seriesSlug: z.string().optional(),
+              seriesSlug: z.coerce.string(),
             }),
             currentGame: z.object({
               seriesSummary: z.object({
@@ -70,11 +70,11 @@ export async function getStaticProps() {
     ),
   });
 
-  const data = NhlApiSchema.parse(await response.json());
+  const playoffsData = NhlApiSchema.parse(await response.json());
 
   return {
     props: {
-      playoffsData: data,
+      playoffsData,
     },
     revalidate: 60 * 60,
   };
@@ -193,31 +193,38 @@ const teamNameToColor: Record<string, string> = {
   ["Minnesota Wild"]: "bg-green-800",
 };
 
-function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
-  const { data: prediction } = api.prediction.getBySlug.useQuery({
-    slug: data.names.seriesSlug || "",
-  });
+type PredictionUpsertInput = RouterInputs["prediction"]["upsert"];
 
-  useEffect(() => {
-    if (!prediction?.score) {
-      return;
-    }
-    setSeriesPrediction(prediction.score);
-  }, [prediction]);
+function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
+  const {
+    data: prediction,
+    isLoading: isLoadingPrediction,
+    isSuccess: isSuccessPrediction,
+  } = api.prediction.getBySlug.useQuery({
+    slug: data.names.seriesSlug,
+  });
 
   const [seriesPrediction, setSeriesPrediction] = useState<string>(
     prediction?.score || ""
   );
 
-  const predictionMutation = api.prediction.upsert.useMutation();
-  function onChangePrediction(slug: string | undefined, score: string) {
-    if (typeof slug === "undefined") {
-      return;
-    }
+  useEffect(() => {
+    if (!isSuccessPrediction || !prediction?.score) return;
+    setSeriesPrediction(prediction.score);
+  }, [prediction, isSuccessPrediction]);
 
-    predictionMutation.mutate({ slug, score });
-    setSeriesPrediction(score);
-    toast.success("Saved prediction");
+  const predictionMutation = api.prediction.upsert.useMutation({
+    onSuccess({ score }) {
+      setSeriesPrediction(score);
+      toast.success("Saved prediction");
+    },
+    onError() {
+      toast.error("Failed to save prediction");
+    },
+  });
+
+  function onChangePrediction(params: PredictionUpsertInput) {
+    predictionMutation.mutate({ slug: params.slug, score: params.score });
   }
 
   const topSeed = data.matchupTeams?.find((team) => team.seed.isTop);
@@ -226,20 +233,14 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
     return null;
   }
 
-  let hasSeriesStarted = false;
-  const currentGameStartTime = data.currentGame.seriesSummary.gameTime;
-  if (currentGameStartTime) {
-    hasSeriesStarted = new Date() >= new Date(currentGameStartTime);
-  }
-  const winsRequiredToAdvance = 4;
-  const isSeriesOver = [
-    topSeed.seriesRecord.wins,
-    bottomSeed.seriesRecord.wins,
-  ].some((value) => value === winsRequiredToAdvance);
+  const seriesProgression = getSeriesProgression({
+    topSeedWins: topSeed.seriesRecord.wins,
+    bottomSeedWins: bottomSeed.seriesRecord.wins,
+    currentGameStartTime: data.currentGame.seriesSummary.gameTime,
+  });
 
   const predictionOutcome = getPredictionOutcome({
-    hasSeriesStarted,
-    isSeriesOver,
+    seriesProgression,
     predictedScore: prediction?.score || "",
     topSeedTeamName: topSeed.team.name,
     topSeedTeamScore: topSeed.seriesRecord.wins.toString(),
@@ -287,28 +288,37 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
       <h3 className="text-md -mb-2 font-semibold md:text-lg">
         Series Prediction
       </h3>
-      <select
-        className="w-full cursor-pointer rounded-md bg-black px-4 py-1 text-white disabled:cursor-not-allowed disabled:opacity-50"
-        value={seriesPrediction}
-        onChange={(event) =>
-          onChangePrediction(data.names.seriesSlug, event.target.value)
-        }
-        disabled={hasSeriesStarted}
-      >
-        <option disabled value="">
-          Choose prediction
-        </option>
-        <optgroup label={`${topSeed.team.name} win`}></optgroup>
-        <option value="4-0">4-0 {topSeed.team.name}</option>
-        <option value="4-1">4-1 {topSeed.team.name}</option>
-        <option value="4-2">4-2 {topSeed.team.name}</option>
-        <option value="4-3">4-3 {topSeed.team.name}</option>
-        <optgroup label={`${bottomSeed.team.name} win`}></optgroup>
-        <option value="0-4">4-0 {bottomSeed.team.name}</option>
-        <option value="1-4">4-1 {bottomSeed.team.name}</option>
-        <option value="2-4">4-2 {bottomSeed.team.name}</option>
-        <option value="3-4">4-3 {bottomSeed.team.name}</option>
-      </select>
+      {isLoadingPrediction ? (
+        <div className="w-full animate-pulse cursor-progress rounded-md bg-black px-4 py-1 text-white">
+          Loading prediction...
+        </div>
+      ) : (
+        <select
+          className="w-full cursor-pointer rounded-md bg-black px-4 py-1 text-white disabled:cursor-not-allowed disabled:opacity-50"
+          value={seriesPrediction}
+          onChange={(event) =>
+            onChangePrediction({
+              slug: data.names.seriesSlug,
+              score: event.target.value,
+            })
+          }
+          disabled={seriesProgression !== "not-started"}
+        >
+          <option disabled value="">
+            Choose prediction
+          </option>
+          <optgroup label={`${topSeed.team.name} win`}></optgroup>
+          <option value="4-0">4-0 {topSeed.team.name}</option>
+          <option value="4-1">4-1 {topSeed.team.name}</option>
+          <option value="4-2">4-2 {topSeed.team.name}</option>
+          <option value="4-3">4-3 {topSeed.team.name}</option>
+          <optgroup label={`${bottomSeed.team.name} win`}></optgroup>
+          <option value="0-4">4-0 {bottomSeed.team.name}</option>
+          <option value="1-4">4-1 {bottomSeed.team.name}</option>
+          <option value="2-4">4-2 {bottomSeed.team.name}</option>
+          <option value="3-4">4-3 {bottomSeed.team.name}</option>
+        </select>
+      )}
 
       <div className="md:text-md flex flex-col gap-4 text-sm">
         {predictionOutcome === "series-in-progress" && (
@@ -386,6 +396,47 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
   );
 }
 
+type SeriesProgression = "not-started" | "started" | "finished";
+type SeriesProgressionInputs = {
+  topSeedWins: number;
+  bottomSeedWins: number;
+  currentGameStartTime?: string;
+};
+
+function getSeriesProgression({
+  topSeedWins,
+  bottomSeedWins,
+  currentGameStartTime,
+}: SeriesProgressionInputs): SeriesProgression {
+  const isSeriesOver = getIsSeriesOver(topSeedWins, bottomSeedWins);
+  if (isSeriesOver) return "finished";
+
+  const isSeriesStarted = getIsSeriesStarted(currentGameStartTime);
+  if (isSeriesStarted) return "started";
+
+  return "not-started";
+}
+
+function getIsSeriesOver(
+  topSeedWins: SeriesProgressionInputs["topSeedWins"],
+  bottomSeedWins: SeriesProgressionInputs["bottomSeedWins"]
+) {
+  const winsRequiredToAdvance = 4;
+  const isSeriesOver = [topSeedWins, bottomSeedWins].some(
+    (value) => value === winsRequiredToAdvance
+  );
+  return isSeriesOver;
+}
+
+function getIsSeriesStarted(
+  currentGameStartTime: SeriesProgressionInputs["currentGameStartTime"]
+) {
+  if (currentGameStartTime) {
+    return new Date() >= new Date(currentGameStartTime);
+  }
+  return false;
+}
+
 type PredictionOutcome =
   | "series-in-progress"
   | "series-not-started"
@@ -396,31 +447,29 @@ type PredictionOutcome =
   | "exactly-correct";
 
 function getPredictionOutcome({
-  hasSeriesStarted,
-  isSeriesOver,
+  seriesProgression,
   predictedScore,
   topSeedTeamName,
   topSeedTeamScore,
   bottomSeedTeamName,
   bottomSeedTeamScore,
 }: {
-  hasSeriesStarted: boolean;
-  isSeriesOver: boolean;
+  seriesProgression: SeriesProgression;
   predictedScore: string;
   topSeedTeamName: string;
   topSeedTeamScore: string;
   bottomSeedTeamName: string;
   bottomSeedTeamScore: string;
 }): PredictionOutcome {
-  if (predictedScore && hasSeriesStarted && !isSeriesOver) {
+  if (predictedScore && seriesProgression === "started") {
     return "series-in-progress";
   }
 
-  if (!hasSeriesStarted) {
+  if (seriesProgression === "not-started") {
     return "series-not-started";
   }
 
-  if (!predictedScore && hasSeriesStarted) {
+  if (!predictedScore && seriesProgression === "started") {
     return "no-prediction-made";
   }
 
