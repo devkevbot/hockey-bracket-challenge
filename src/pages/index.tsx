@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import Head from "next/head";
 import { signIn, useSession } from "next-auth/react";
 import { api } from "~/utils/api";
-import { type Prediction } from "@prisma/client";
 import { type InferGetStaticPropsType } from "next";
 import { z } from "zod";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -15,52 +14,6 @@ import {
   faMinus,
 } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "react-toastify";
-
-function Home(props: InferGetStaticPropsType<typeof getStaticProps>) {
-  const { data: sessionData, status } = useSession();
-
-  return (
-    <>
-      <Head>
-        <title>Hockey Bracket Challenge - 2023 Edition</title>
-        <meta
-          name="description"
-          content="Hockey Bracket Challenge - 2023 Edition"
-        />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-      <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-sky-500 to-sky-200">
-        <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16 ">
-          <h1 className="text-center  text-5xl font-extrabold tracking-tight text-white sm:text-[5rem]">
-            NHL Playoff Predictions
-          </h1>
-          <h2 className="text-4xl font-bold tracking-tight text-black sm:text-[4rem]">
-            2023 Edition
-          </h2>
-
-          <div className="flex flex-col items-center justify-center gap-4">
-            {status === "unauthenticated" && (
-              <button
-                className="rounded-lg bg-black px-10 py-3 font-semibold text-white no-underline transition hover:bg-black/20"
-                onClick={() => void signIn()}
-              >
-                {"Sign in"}
-              </button>
-            )}
-            {status === "loading" && (
-              <span className="text-4xl font-bold">Loading...</span>
-            )}
-            {status === "authenticated" && sessionData && (
-              <RoundsList playoffsData={props.playoffsData} />
-            )}
-          </div>
-        </div>
-      </main>
-    </>
-  );
-}
-
-export default Home;
 
 export async function getStaticProps() {
   const response = await fetch(
@@ -127,14 +80,68 @@ export async function getStaticProps() {
   };
 }
 
-function RoundsList({
-  playoffsData,
-}: InferGetStaticPropsType<typeof getStaticProps>) {
-  const currentRound = playoffsData.defaultRound;
+type StaticProps = InferGetStaticPropsType<typeof getStaticProps>;
+
+function Home(props: StaticProps) {
+  const { data: sessionData, status } = useSession();
+
+  return (
+    <>
+      <Head>
+        <title>Hockey Bracket Challenge - 2023 Edition</title>
+        <meta
+          name="description"
+          content="Hockey Bracket Challenge - 2023 Edition"
+        />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+      <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-sky-500 to-sky-200">
+        <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16 ">
+          <h1 className="text-center  text-5xl font-extrabold tracking-tight text-white sm:text-[5rem]">
+            NHL Playoff Predictions
+          </h1>
+          <h2 className="text-4xl font-bold tracking-tight text-black sm:text-[4rem]">
+            2023 Edition
+          </h2>
+
+          <div className="flex flex-col items-center justify-center gap-4">
+            {status === "unauthenticated" && (
+              <button
+                className="rounded-lg bg-black px-10 py-3 font-semibold text-white no-underline transition hover:bg-black/20"
+                onClick={() => void signIn()}
+              >
+                {"Sign in"}
+              </button>
+            )}
+            {status === "loading" && (
+              <span className="text-4xl font-bold">Loading...</span>
+            )}
+            {status === "authenticated" && sessionData && (
+              <RoundsList data={props.playoffsData} />
+            )}
+          </div>
+        </div>
+      </main>
+    </>
+  );
+}
+
+export default Home;
+
+type PlayoffsData = StaticProps["playoffsData"];
+
+function RoundsList({ data }: { data: PlayoffsData }) {
+  const currentRound = data.defaultRound;
+
+  const roundsInDescOrd = data.rounds.sort((a, b) => {
+    if (a.number > b.number) return -1;
+    if (a.number < b.number) return 1;
+    return 0;
+  });
 
   return (
     <div className="flex flex-col">
-      {playoffsData.rounds.map((round, index) => {
+      {roundsInDescOrd.map((round, index) => {
         if (round.number > currentRound) return null;
         return <RoundItem data={round} key={index} />;
       })}
@@ -142,34 +149,25 @@ function RoundsList({
   );
 }
 
-function RoundItem({
-  data,
-}: {
-  data: InferGetStaticPropsType<
-    typeof getStaticProps
-  >["playoffsData"]["rounds"][number];
-}) {
+type PlayoffRound = PlayoffsData["rounds"][number];
+
+function RoundItem({ data }: { data: PlayoffRound }) {
   return (
     <div className="flex flex-col items-center p-2">
       <h3 className="mb-8 mt-4 w-fit rounded-lg bg-black px-8 py-4 text-center text-4xl font-bold uppercase text-white">
         {data.names.name}
       </h3>
-      <SeriesList series={data.series} />
+      <SeriesList data={data.series} />
     </div>
   );
 }
 
-function SeriesList({
-  series,
-}: {
-  series: InferGetStaticPropsType<
-    typeof getStaticProps
-  >["playoffsData"]["rounds"][number]["series"];
-  predictions?: Prediction[];
-}) {
+type PlayoffSeries = PlayoffRound["series"];
+
+function SeriesList({ data }: { data: PlayoffSeries }) {
   return (
     <div className="grid w-full grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
-      {series.map((series, index) => {
+      {data.map((series, index) => {
         return <SeriesItem data={series} key={index} />;
       })}
     </div>
@@ -195,13 +193,7 @@ const teamNameToColor: Record<string, string> = {
   ["Minnesota Wild"]: "bg-green-800",
 };
 
-function SeriesItem({
-  data,
-}: {
-  data: InferGetStaticPropsType<
-    typeof getStaticProps
-  >["playoffsData"]["rounds"][number]["series"][number];
-}) {
+function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
   const { data: prediction } = api.prediction.getBySlug.useQuery({
     slug: data.names.seriesSlug || "",
   });
