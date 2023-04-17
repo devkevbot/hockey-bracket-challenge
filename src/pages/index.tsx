@@ -279,7 +279,7 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
 
   const predictionOutcome = getPredictionOutcome({
     seriesProgression,
-    predictedScore: prediction?.score || "",
+    predictedScore: seriesPrediction,
     topSeedTeamName: topSeed.team.name,
     topSeedTeamScore: topSeed.seriesRecord.wins.toString(),
     bottomSeedTeamName: bottomSeed.team.name,
@@ -288,6 +288,16 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
 
   const topSeedColor = teamNameToColor[topSeed.team.name];
   const bottomSeedColor = teamNameToColor[bottomSeed.team.name];
+
+  const predictedWinningTeamName = getPredictedWinningTeamName({
+    predictedScore: seriesPrediction,
+    topSeedTeamName: topSeed.team.name,
+    bottomSeedTeamName: bottomSeed.team.name,
+  });
+
+  const predictedWinnerColor =
+    (predictedWinningTeamName && teamNameToColor[predictedWinningTeamName]) ||
+    "bg-black";
 
   if (isLoadingPrediction) {
     return <SeriesItemSkeletonLoader />;
@@ -304,7 +314,7 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
         </div>
         <div className="flex w-full items-center">
           <hr className="w-full border-2 border-black" />
-          <span className="px-2 font-bold italic">VS</span>
+          <span className="px-2 font-bold">VS</span>
           <hr className="w-full border-2 border-black" />
         </div>
         <div className="text-md flex items-center justify-center gap-2 font-semibold md:text-lg">
@@ -331,7 +341,7 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
         Series Prediction
       </h3>
       <select
-        className="w-full cursor-pointer rounded-md bg-black px-4 py-1 text-white disabled:cursor-not-allowed disabled:opacity-50"
+        className={`w-full cursor-pointer rounded-md px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 ${predictedWinnerColor}`}
         value={seriesPrediction}
         onChange={(event) =>
           onChangePrediction({
@@ -341,7 +351,7 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
         }
         disabled={seriesProgression !== "not-started"}
       >
-        <option disabled value="">
+        <option disabled className="hidden" value="">
           Choose prediction
         </option>
         <optgroup label={`${topSeed.team.name} win`}></optgroup>
@@ -575,6 +585,28 @@ function getPredictionOutcome({
   }
 
   return "incorrect";
+}
+
+function getPredictedWinningTeamName({
+  predictedScore,
+  topSeedTeamName,
+  bottomSeedTeamName,
+}: {
+  predictedScore: string;
+  topSeedTeamName: NhlTeamName;
+  bottomSeedTeamName: NhlTeamName;
+}): NhlTeamName | null {
+  const [topSeedPredictedWins, lowSeedPredictedWins] =
+    predictedScore.split("-");
+  if (!topSeedPredictedWins || !lowSeedPredictedWins) {
+    return null;
+  }
+
+  const predictedWinningTeamName =
+    topSeedPredictedWins > lowSeedPredictedWins
+      ? topSeedTeamName
+      : bottomSeedTeamName;
+  return predictedWinningTeamName;
 }
 
 function SeriesItemSkeletonLoader() {
