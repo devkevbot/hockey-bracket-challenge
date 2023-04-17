@@ -349,7 +349,7 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
             score: event.target.value,
           })
         }
-        disabled={seriesProgression !== "not-started"}
+        disabled={seriesProgression !== "series-not-started"}
       >
         <option disabled className="hidden" value="">
           Choose prediction
@@ -385,7 +385,7 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
             <span className="font-semibold">Series not started</span>
           </div>
         )}
-        {predictionOutcome === "no-prediction-made" && (
+        {predictionOutcome === "prediction-not-made" && (
           <div className="flex items-center gap-2">
             <FontAwesomeIcon
               icon={faMinus}
@@ -396,7 +396,7 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
             </span>
           </div>
         )}
-        {predictionOutcome === "exactly-correct" && (
+        {predictionOutcome === "prediction-exactly-correct" && (
           <div className="flex items-center gap-2">
             <FontAwesomeIcon
               icon={faSquareCheck}
@@ -428,7 +428,7 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
             </span>
           </div>
         )}
-        {predictionOutcome === "incorrect" && (
+        {predictionOutcome === "prediction-totally-incorrect" && (
           <div className="flex items-center gap-2">
             <FontAwesomeIcon
               icon={faSquareXmark}
@@ -442,7 +442,10 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
   );
 }
 
-type SeriesProgression = "not-started" | "started" | "finished";
+type SeriesProgression =
+  | "series-not-started"
+  | "series-in-progress"
+  | "series-finished";
 type SeriesProgressionInputs = {
   topSeedWins: number;
   bottomSeedWins: number;
@@ -455,12 +458,12 @@ function getSeriesProgression({
   currentGameStartTime,
 }: SeriesProgressionInputs): SeriesProgression {
   const isSeriesOver = getIsSeriesOver(topSeedWins, bottomSeedWins);
-  if (isSeriesOver) return "finished";
+  if (isSeriesOver) return "series-finished";
 
   const isSeriesStarted = getIsSeriesStarted(currentGameStartTime);
-  if (isSeriesStarted) return "started";
+  if (isSeriesStarted) return "series-in-progress";
 
-  return "not-started";
+  return "series-not-started";
 }
 
 function getIsSeriesOver(
@@ -483,13 +486,12 @@ function getIsSeriesStarted(
 }
 
 type PredictionOutcome =
-  | "series-in-progress"
-  | "series-not-started"
-  | "no-prediction-made"
+  | Extract<SeriesProgression, "series-not-started" | "series-in-progress">
+  | "prediction-not-made"
   | "only-winner-correct"
   | "only-series-length-correct"
-  | "incorrect"
-  | "exactly-correct";
+  | "prediction-totally-incorrect"
+  | "prediction-exactly-correct";
 
 function getPredictionOutcome({
   seriesProgression,
@@ -506,22 +508,22 @@ function getPredictionOutcome({
   bottomSeedTeamName: NhlTeamName;
   bottomSeedTeamScore: string;
 }): PredictionOutcome {
-  if (predictedScore && seriesProgression === "started") {
-    return "series-in-progress";
+  if (predictedScore && seriesProgression === "series-in-progress") {
+    return seriesProgression;
   }
 
-  if (seriesProgression === "not-started") {
-    return "series-not-started";
+  if (seriesProgression === "series-not-started") {
+    return seriesProgression;
   }
 
-  if (!predictedScore && seriesProgression === "started") {
-    return "no-prediction-made";
+  if (!predictedScore && seriesProgression === "series-in-progress") {
+    return "prediction-not-made";
   }
 
   const [topSeedPredictedWins, lowSeedPredictedWins] =
     predictedScore.split("-");
   if (!topSeedPredictedWins || !lowSeedPredictedWins) {
-    return "no-prediction-made";
+    return "prediction-not-made";
   }
 
   const predictedWinningTeamName =
@@ -573,7 +575,7 @@ function getPredictionOutcome({
     isWinningTeamScoreCorrect &&
     isLosingTeamScoreCorrect
   ) {
-    return "exactly-correct";
+    return "prediction-exactly-correct";
   }
 
   if (isWinningTeamNameCorrect) {
@@ -584,7 +586,7 @@ function getPredictionOutcome({
     return "only-series-length-correct";
   }
 
-  return "incorrect";
+  return "prediction-totally-incorrect";
 }
 
 function getPredictedWinningTeamName({
