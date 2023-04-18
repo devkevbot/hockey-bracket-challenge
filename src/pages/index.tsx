@@ -473,7 +473,11 @@ function getSeriesProgression({
   const isSeriesOver = getIsSeriesOver(topSeedScore, bottomSeedScore);
   if (isSeriesOver) return "series-finished";
 
-  const isSeriesStarted = getIsSeriesStarted(currentGameStartTime);
+  const isSeriesStarted = getIsSeriesStarted({
+    topSeedScore,
+    bottomSeedScore,
+    currentGameStartTime,
+  });
   if (isSeriesStarted) return "series-in-progress";
 
   return "series-not-started";
@@ -489,13 +493,15 @@ function getIsSeriesOver(
   return isSeriesOver;
 }
 
-function getIsSeriesStarted(
-  currentGameStartTime: SeriesProgressionInputs["currentGameStartTime"]
-) {
-  if (currentGameStartTime) {
-    return new Date() >= new Date(currentGameStartTime);
-  }
-  return false;
+function getIsSeriesStarted({
+  topSeedScore,
+  bottomSeedScore,
+  currentGameStartTime,
+}: SeriesProgressionInputs) {
+  const currentGameStarted =
+    currentGameStartTime && new Date() >= new Date(currentGameStartTime);
+  const eitherTeamHasScore = topSeedScore > 0 || bottomSeedScore > 0;
+  return currentGameStarted || eitherTeamHasScore;
 }
 
 type PredictionResult =
