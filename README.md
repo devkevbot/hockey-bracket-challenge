@@ -57,7 +57,7 @@ npm run db-proxy
 npm run db-seed
 ```
 
-5. Re-using the second terminal, start the proxy
+5. Re-using the second terminal, start the application
 
 ```sh
 npm run dev
