@@ -35,35 +35,37 @@ The breakdown is as follows:
 
 ### Local setup
 
-1. If cloning this as a fresh project, pull in the environment variables (requires Vercel link/authorization):
+1. If cloning this as a fresh project, pull in the environment variables (requires Vercel link/authorization) to your local `.env` file
 
 ```sh
 npm run env-pull
 
-# Delete any VERCEL_* variables that get pulled in, they aren't needed and can break local dev
+# Delete any VERCEL_* variables that get pulled in, they aren't needed and WILL break local dev
 ```
 
-2. Install the PlanetScale CLI
+2. Install the [PlanetScale CLI](https://github.com/planetscale/cli#installation)
 
-3. Initialize a DB proxy to Prisma via PlanetScale
+3. Initialize the DB proxy to Prisma via PlanetScale
 
 ```sh
 npm run db-proxy
 ```
 
-4. In a second terminal, seed the database
+4. In a new terminal, seed the database
 
 ```sh
 npm run db-seed
 ```
 
-5. Re-using the second terminal, start the application
+5. Start the application
 
 ```sh
 npm run dev
 ```
 
-6. (Optional) In a third terminal, view the database using Prisma studio
+6. Go to the [localhost link](http://localhost:3000) that was output to the console
+
+7. (Optional) In a new terminal, view the database using Prisma studio
 
 ```
 npm run db-studio
@@ -91,9 +93,9 @@ npm run db-generate
 
 4. Restart TypeScript server
 
-- Use your IDE or language server commands to do this. In VS Code, open a TypeScript or TSX file, then: `CTRL+SHIFT+P > TypeSCript: Restart TS Server`
+- Use your IDE or language server commands to do this. In VS Code, open a TypeScript or TSX file, then: `CTRL+SHIFT+P > TypeScript: Restart TS Server`
 
-5. Once confident, make a database deploy-request and marge into the PlanetScale `main` branch
+5. Once confident, make a database deploy-request using the comamnd below, then merge `dev` into the PlanetScale `main` branch
 
 ```sh
 npm run db-deploy-request
