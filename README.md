@@ -26,18 +26,4 @@ The breakdown is as follows:
 
 ## Sample Screenshots
 
-### Signed in, Desktop
-
-![image](https://user-images.githubusercontent.com/31908183/232259799-644fd7ab-3516-49d5-b8dc-5fd017965b29.png)
-
-### Signed in, Mobile
-
-![image](https://user-images.githubusercontent.com/31908183/232259969-65886886-9535-423f-8470-b010f932468e.png)
-
-### Signed out, Desktop
-
-![image](https://user-images.githubusercontent.com/31908183/232255741-484b5582-dc30-49d7-a0bc-acb3baf21ab6.png)
-
-### Signed out, Mobile
-
-![image](https://user-images.githubusercontent.com/31908183/232255776-7449cc06-698a-457b-95e8-2d59e6e5ef26.png)
+![image](https://user-images.githubusercontent.com/31908183/232652006-0b23906a-ab5d-4844-9d4f-a615207c5615.png)
