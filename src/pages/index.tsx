@@ -338,21 +338,21 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
         <div
           className={`${topSeedBgColor} flex items-center justify-center gap-2 rounded-l-full py-2`}
         >
-          <span>{data.names.teamAbbreviationA}</span>
-          <span>{topSeed.seriesRecord.wins}</span>
+          <span className="drop-shadow">{data.names.teamAbbreviationA}</span>
+          <span className="drop-shadow">{topSeed.seriesRecord.wins}</span>
         </div>
         <div
           className={`${bottomSeedBgColor} flex items-center justify-center gap-2 rounded-r-full py-2`}
         >
-          <span>{data.names.teamAbbreviationB}</span>
-          <span>{bottomSeed.seriesRecord.wins}</span>
+          <span className="drop-shadow">{data.names.teamAbbreviationB}</span>
+          <span className="drop-shadow">{bottomSeed.seriesRecord.wins}</span>
         </div>
       </div>
       <h3 className="text-md -mb-2 font-semibold md:text-lg">
         Series Prediction
       </h3>
       <select
-        className={`w-full cursor-pointer rounded-full px-5 py-3 text-center font-semibold text-white disabled:cursor-not-allowed ${predictedWinnerBgColor}`}
+        className={`w-full cursor-pointer rounded-full px-5 py-3 text-center font-semibold text-white drop-shadow disabled:cursor-not-allowed ${predictedWinnerBgColor}`}
         value={predictedScore}
         onChange={(event) =>
           onChangePrediction({
@@ -378,68 +378,55 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
       </select>
       <div className="md:text-md flex flex-col gap-4 text-sm">
         {predictionOutcome === "series-not-started" && (
-          <div className="flex items-center gap-2">
-            <FontAwesomeIcon
-              icon={faClock}
-              className="aspect-square h-8 text-blue-500"
-            />
+          <div className="flex items-center gap-2 rounded-full bg-blue-200 px-4 py-2 text-slate-800">
+            <FontAwesomeIcon icon={faClock} className="aspect-square h-6" />
             <span className="font-semibold">Series not started</span>
           </div>
         )}
         {predictionOutcome === "series-in-progress" && (
-          <div className="flex items-center gap-2">
-            <FontAwesomeIcon
-              icon={faLock}
-              className="aspect-square h-8 text-yellow-500"
-            />
+          <div className="flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-slate-800">
+            <FontAwesomeIcon icon={faLock} className="aspect-square h-6" />
             <span className="font-semibold">Series in progress</span>
           </div>
         )}
         {predictionOutcome === "prediction-not-made" && (
-          <div className="flex items-center gap-2">
-            <FontAwesomeIcon
-              icon={faMinus}
-              className="aspect-square h-8 text-yellow-500"
-            />
+          <div className="flex items-center gap-2 rounded-full bg-slate-300 px-4 py-2 text-slate-800">
+            <FontAwesomeIcon icon={faMinus} className="aspect-square h-6" />
             <span className="font-semibold">Prediction not made</span>
           </div>
         )}
         {predictionOutcome === "prediction-exactly-correct" && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-full bg-green-300 px-4 py-2 text-slate-800">
             <FontAwesomeIcon
               icon={faSquareCheck}
-              className="aspect-square h-8 text-green-500"
+              className="aspect-square h-6"
             />
             <span className="font-semibold">Correct prediction</span>
           </div>
         )}
         {predictionOutcome === "only-series-length-correct" && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-full bg-orange-300 px-4 py-2 text-slate-800">
             <FontAwesomeIcon
               icon={faSquareMinus}
-              className="aspect-square h-8 text-orange-500"
+              className="aspect-square h-6"
             />
-            <span className="font-semibold">
-              Partially correct: predicted series length
-            </span>
+            <span className="font-semibold">Only predicted series length</span>
           </div>
         )}
         {predictionOutcome === "only-winner-correct" && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-full bg-orange-300 px-4 py-2 text-slate-800">
             <FontAwesomeIcon
               icon={faSquareMinus}
-              className="aspect-square h-8 text-orange-500"
+              className="aspect-square h-6"
             />
-            <span className="font-semibold">
-              Partially correct: predicted winner
-            </span>
+            <span className="font-semibold">Only predicted winner</span>
           </div>
         )}
         {predictionOutcome === "prediction-totally-incorrect" && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-full bg-red-300 px-4 py-2 text-slate-800">
             <FontAwesomeIcon
               icon={faSquareXmark}
-              className="aspect-square h-8 text-red-600"
+              className="aspect-square h-6"
             />
             <span className="font-semibold">Incorrect prediction</span>
           </div>
@@ -702,7 +689,7 @@ function SeriesItemSkeletonLoader() {
           <div className="h-4 rounded bg-sky-500"></div>
           <div className="space-y-3">
             <div className="grid grid-cols-1">
-              <div className="col-span-1 h-10 rounded bg-sky-500"></div>
+              <div className="col-span-1 h-6 rounded bg-sky-500"></div>
             </div>
           </div>
           <div className="grid grid-cols-5 grid-rows-3 gap-4">
