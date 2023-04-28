@@ -667,9 +667,8 @@ function getWinnerAndLoser({
     }
   }
 
-  // We don't know the actual winner/loser yet, so escape early to avoid setting
-  // the result.actual data.
-  if (seriesProgression !== "series-finished") {
+  // Only lookup the actual winner/loser when the series is finished
+  if (seriesProgression === "series-finished") {
     if (topSeedActualScore > bottomSeedActualScore) {
       result.actual.winner = {
         name: topSeedTeamName,
