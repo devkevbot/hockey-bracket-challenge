@@ -30,7 +30,7 @@ The breakdown is as follows:
 
 ### Deployment
 
-- This is project is hosted on [Vercel](https://vercel.com)
+- This project is hosted on [Vercel](https://vercel.com)
 - Any changes to the `master` branch automatically trigger a deployment from Vercel
 
 ### Local setup
@@ -79,7 +79,7 @@ npm run db-studio
 npm run db-proxy
 ```
 
-2. Push local schema changes to PlanetScale `dev` branch
+2. Push local schema changes to the PlanetScale `dev` branch
 
 ```sh
 npm run db-push
@@ -95,7 +95,7 @@ npm run db-generate
 
 - Use your IDE or language server commands to do this. In VS Code, open a TypeScript or TSX file, then: `CTRL+SHIFT+P > TypeScript: Restart TS Server`
 
-5. Once confident, make a database deploy-request using the comamnd below, then merge `dev` into the PlanetScale `main` branch
+5. Once confident, make a database deploy request using the command below, then merge `dev` into the PlanetScale `main` branch
 
 ```sh
 npm run db-deploy-request
