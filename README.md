@@ -2,7 +2,7 @@
 
 A small project used to record my predictions for the 2023 NHL Playoffs. Available at https://hockey-bracket-challenge.vercel.app/
 
-![image](https://user-images.githubusercontent.com/31908183/232652006-0b23906a-ab5d-4844-9d4f-a615207c5615.png)
+![image](https://user-images.githubusercontent.com/31908183/235097489-ccdde4ca-ea05-4712-96da-ae46205efb04.png)
 
 ---
 
