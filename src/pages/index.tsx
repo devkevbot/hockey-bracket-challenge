@@ -91,7 +91,7 @@ function Home(props: StaticProps) {
   const { data: sessionData, status } = useSession();
 
   return (
-    <div className="bg-gradient-to-b from-sky-500 to-sky-100">
+    <div className="bg-gradient-to-b from-sky-500 to-sky-200">
       <Head>
         <title>Hockey Bracket Challenge - 2023 Edition</title>
         <meta
@@ -101,7 +101,7 @@ function Home(props: StaticProps) {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <main className="flex min-h-screen flex-col items-center justify-center">
-        <div className="container flex flex-col items-center justify-center gap-4 px-4 py-16 md:gap-8 xl:gap-12">
+        <div className="container flex flex-col items-center justify-center gap-4 px-4 py-16">
           <div className="flex flex-col items-center gap-4 xl:flex-row xl:gap-8">
             <picture>
               <source media="(min-width: 640px)" srcSet="puck-128.png" />
@@ -111,9 +111,6 @@ function Home(props: StaticProps) {
               NHL Playoff Predictions
             </h1>
           </div>
-          <h2 className="text-4xl font-bold tracking-tight text-black xl:text-[4rem]">
-            2023 Edition
-          </h2>
           <div className="flex flex-col items-center justify-center gap-4">
             {status === "unauthenticated" && (
               <button
@@ -144,7 +141,7 @@ function Home(props: StaticProps) {
           </div>
         </div>
       </main>
-      <footer className="bg-sky-200 py-4 text-center font-semibold">
+      <footer className="bg-sky-300 py-4 text-center font-semibold">
         <a href="https://www.flaticon.com/free-icons/puck" title="puck icons">
           Puck icons created by Freepik - Flaticon
         </a>
@@ -181,7 +178,7 @@ type PlayoffRound = PlayoffsData["rounds"][number];
 function RoundItem({ data }: { data: PlayoffRound }) {
   return (
     <div className="flex flex-col items-center p-2">
-      <h3 className="mb-8 mt-4 w-fit rounded-lg bg-black px-8 py-4 text-center text-4xl font-bold uppercase text-white">
+      <h3 className="mb-8 mt-4 w-fit rounded-full bg-sky-800 px-8 py-4 text-center text-4xl font-bold text-white">
         {data.names.name}
       </h3>
       <SeriesList data={data.series} />
@@ -223,22 +220,22 @@ const NHL_TEAM_NAMES = [
 type NhlTeamName = (typeof NHL_TEAM_NAMES)[number];
 
 const teamNameToBgColor: Record<NhlTeamName, string> = {
-  ["Boston Bruins"]: "bg-amber-400",
-  ["Florida Panthers"]: "bg-red-700",
-  ["Carolina Hurricanes"]: "bg-red-600",
-  ["New York Islanders"]: "bg-orange-600",
-  ["New Jersey Devils"]: "bg-red-600",
-  ["New York Rangers"]: "bg-blue-800",
-  ["Toronto Maple Leafs"]: "bg-blue-600",
-  ["Tampa Bay Lightning"]: "bg-blue-700",
-  ["Vegas Golden Knights"]: "bg-yellow-500",
-  ["Winnipeg Jets"]: "bg-blue-900",
+  ["Boston Bruins"]: "bg-[#FFB81C]",
+  ["Florida Panthers"]: "bg-[#C8102E]",
+  ["Carolina Hurricanes"]: "bg-[#CE1126]",
+  ["New York Islanders"]: "bg-[#f47d30]",
+  ["New Jersey Devils"]: "bg-[#CE1126]",
+  ["New York Rangers"]: "bg-[#0038A8]",
+  ["Toronto Maple Leafs"]: "bg-[#00205B]",
+  ["Tampa Bay Lightning"]: "bg-[#002868]",
+  ["Vegas Golden Knights"]: "bg-[#333f42]",
+  ["Winnipeg Jets"]: "bg-[#041E42]",
   ["Edmonton Oilers"]: "bg-orange-500",
-  ["Los Angeles Kings"]: "bg-black",
-  ["Colorado Avalanche"]: "bg-red-950",
-  ["Seattle Kraken"]: "bg-sky-300",
-  ["Dallas Stars"]: "bg-green-600",
-  ["Minnesota Wild"]: "bg-green-800",
+  ["Los Angeles Kings"]: "bg-[#111111]",
+  ["Colorado Avalanche"]: "bg-[#6F263D]",
+  ["Seattle Kraken"]: "bg-[#68a2b9]",
+  ["Dallas Stars"]: "bg-[#006847]",
+  ["Minnesota Wild"]: "bg-[#154734]",
 };
 
 type PredictionUpsertInput = RouterInputs["prediction"]["upsert"];
@@ -317,139 +314,136 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
   }
 
   return (
-    <div className="relative duration-100 ease-in-out md:hover:scale-105">
-      <div
-        className={`absolute -inset-1 ${predictedWinnerBgColor} shadow-l rounded-md`}
-      ></div>
-      <div className="flex max-w-xs transform flex-col items-center gap-4 rounded-md bg-gradient-to-tl from-sky-200 to-white p-4">
-        <div className="flex w-full flex-col gap-2 text-center">
-          <div className="text-md flex items-center justify-center gap-2 font-semibold md:text-lg">
-            <span className={`${topSeedBgColor} rounded-full p-1.5`}></span>
-            <span>
-              {topSeed.team.name} ({topSeed.seed.type})
-            </span>
-          </div>
-          <div className="flex w-full items-center">
-            <hr className="w-full border-2 border-black" />
-            <span className="px-2 font-bold">VS</span>
-            <hr className="w-full border-2 border-black" />
-          </div>
-          <div className="text-md flex items-center justify-center gap-2 font-semibold md:text-lg">
-            <span className={`${bottomSeedBgColor} rounded-full p-1.5`}></span>
-            <span>
-              {bottomSeed.team.name} ({bottomSeed.seed.type})
-            </span>
-          </div>
-        </div>
-        <div className="text-md grid w-full grid-cols-2 rounded-md text-center font-semibold text-white md:text-lg">
-          <span
-            className={`rounded-bl-md rounded-tl-md border-b-2 border-l-2 border-t-2 ${topSeedBgColor} py-2`}
-          >
-            {topSeed.seriesRecord.wins}
-          </span>
-          <span
-            className={`w-full rounded-br-md rounded-tr-md border-b-2 border-r-2 border-t-2 ${bottomSeedBgColor} py-2`}
-          >
-            {bottomSeed.seriesRecord.wins}
+    <div className="flex max-w-xs transform flex-col items-center gap-4 rounded-2xl border-2 bg-sky-100 p-4 shadow-lg">
+      <div className="flex w-full flex-col gap-2 text-center">
+        <div className="text-md flex items-center justify-center gap-2 font-semibold md:text-lg">
+          <span className={`${topSeedBgColor} rounded-full p-1.5`}></span>
+          <span>
+            {topSeed.team.name} ({topSeed.seed.type})
           </span>
         </div>
-        <h3 className="text-md -mb-2 font-semibold md:text-lg">
-          Series Prediction
-        </h3>
-        <select
-          className={`w-full cursor-pointer rounded-md px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 ${predictedWinnerBgColor}`}
-          value={predictedScore}
-          onChange={(event) =>
-            onChangePrediction({
-              slug: data.names.seriesSlug,
-              score: event.target.value as PredictionScore,
-            })
-          }
-          disabled={seriesProgression !== "series-not-started"}
+        <div className="flex w-full items-center">
+          <hr className="w-full border-2 border-black" />
+          <span className="px-2 font-bold">VS</span>
+          <hr className="w-full border-2 border-black" />
+        </div>
+        <div className="text-md flex items-center justify-center gap-2 font-semibold md:text-lg">
+          <span className={`${bottomSeedBgColor} rounded-full p-1.5`}></span>
+          <span>
+            {bottomSeed.team.name} ({bottomSeed.seed.type})
+          </span>
+        </div>
+      </div>
+      <div className="text-md grid w-full grid-cols-2 divide-x rounded-md text-center font-semibold text-white md:text-lg">
+        <div
+          className={`${topSeedBgColor} flex items-center justify-center gap-2 rounded-l-full py-2`}
         >
-          <option disabled className="hidden" value="no-prediction">
-            Choose prediction
-          </option>
-          <optgroup label={`${topSeed.team.name} win`}></optgroup>
-          <option value="4-0">4-0 {topSeed.team.name}</option>
-          <option value="4-1">4-1 {topSeed.team.name}</option>
-          <option value="4-2">4-2 {topSeed.team.name}</option>
-          <option value="4-3">4-3 {topSeed.team.name}</option>
-          <optgroup label={`${bottomSeed.team.name} win`}></optgroup>
-          <option value="0-4">4-0 {bottomSeed.team.name}</option>
-          <option value="1-4">4-1 {bottomSeed.team.name}</option>
-          <option value="2-4">4-2 {bottomSeed.team.name}</option>
-          <option value="3-4">4-3 {bottomSeed.team.name}</option>
-        </select>
-        <div className="md:text-md flex flex-col gap-4 text-sm">
-          {predictionOutcome === "series-not-started" && (
-            <div className="flex items-center gap-2">
-              <FontAwesomeIcon
-                icon={faClock}
-                className="aspect-square h-8 text-blue-500"
-              />
-              <span className="font-semibold">Series not started</span>
-            </div>
-          )}
-          {predictionOutcome === "series-in-progress" && (
-            <div className="flex items-center gap-2">
-              <FontAwesomeIcon
-                icon={faLock}
-                className="aspect-square h-8 text-yellow-500"
-              />
-              <span className="font-semibold">Series in progress</span>
-            </div>
-          )}
-          {predictionOutcome === "prediction-not-made" && (
-            <div className="flex items-center gap-2">
-              <FontAwesomeIcon
-                icon={faMinus}
-                className="aspect-square h-8 text-yellow-500"
-              />
-              <span className="font-semibold">Prediction not made</span>
-            </div>
-          )}
-          {predictionOutcome === "prediction-exactly-correct" && (
-            <div className="flex items-center gap-2">
-              <FontAwesomeIcon
-                icon={faSquareCheck}
-                className="aspect-square h-8 text-green-500"
-              />
-              <span className="font-semibold">Correct prediction</span>
-            </div>
-          )}
-          {predictionOutcome === "only-series-length-correct" && (
-            <div className="flex items-center gap-2">
-              <FontAwesomeIcon
-                icon={faSquareMinus}
-                className="aspect-square h-8 text-orange-500"
-              />
-              <span className="font-semibold">
-                Partially correct: predicted series length
-              </span>
-            </div>
-          )}
-          {predictionOutcome === "only-winner-correct" && (
-            <div className="flex items-center gap-2">
-              <FontAwesomeIcon
-                icon={faSquareMinus}
-                className="aspect-square h-8 text-orange-500"
-              />
-              <span className="font-semibold">
-                Partially correct: predicted winner
-              </span>
-            </div>
-          )}
-          {predictionOutcome === "prediction-totally-incorrect" && (
-            <div className="flex items-center gap-2">
-              <FontAwesomeIcon
-                icon={faSquareXmark}
-                className="aspect-square h-8 text-red-600"
-              />
-              <span className="font-semibold">Incorrect prediction</span>
-            </div>
-          )}
+          <span>{data.names.teamAbbreviationA}</span>
+          <span>{topSeed.seriesRecord.wins}</span>
         </div>
+        <div
+          className={`${bottomSeedBgColor} flex items-center justify-center gap-2 rounded-r-full py-2`}
+        >
+          <span>{data.names.teamAbbreviationB}</span>
+          <span>{bottomSeed.seriesRecord.wins}</span>
+        </div>
+      </div>
+      <h3 className="text-md -mb-2 font-semibold md:text-lg">
+        Series Prediction
+      </h3>
+      <select
+        className={`w-full cursor-pointer rounded-full px-5 py-3 text-center font-semibold text-white disabled:cursor-not-allowed ${predictedWinnerBgColor}`}
+        value={predictedScore}
+        onChange={(event) =>
+          onChangePrediction({
+            slug: data.names.seriesSlug,
+            score: event.target.value as PredictionScore,
+          })
+        }
+        disabled={seriesProgression !== "series-not-started"}
+      >
+        <option disabled className="hidden" value="no-prediction">
+          Choose prediction
+        </option>
+        <optgroup label={`${topSeed.team.name} win`}></optgroup>
+        <option value="4-0">4-0 {topSeed.team.name}</option>
+        <option value="4-1">4-1 {topSeed.team.name}</option>
+        <option value="4-2">4-2 {topSeed.team.name}</option>
+        <option value="4-3">4-3 {topSeed.team.name}</option>
+        <optgroup label={`${bottomSeed.team.name} win`}></optgroup>
+        <option value="0-4">4-0 {bottomSeed.team.name}</option>
+        <option value="1-4">4-1 {bottomSeed.team.name}</option>
+        <option value="2-4">4-2 {bottomSeed.team.name}</option>
+        <option value="3-4">4-3 {bottomSeed.team.name}</option>
+      </select>
+      <div className="md:text-md flex flex-col gap-4 text-sm">
+        {predictionOutcome === "series-not-started" && (
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon
+              icon={faClock}
+              className="aspect-square h-8 text-blue-500"
+            />
+            <span className="font-semibold">Series not started</span>
+          </div>
+        )}
+        {predictionOutcome === "series-in-progress" && (
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon
+              icon={faLock}
+              className="aspect-square h-8 text-yellow-500"
+            />
+            <span className="font-semibold">Series in progress</span>
+          </div>
+        )}
+        {predictionOutcome === "prediction-not-made" && (
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon
+              icon={faMinus}
+              className="aspect-square h-8 text-yellow-500"
+            />
+            <span className="font-semibold">Prediction not made</span>
+          </div>
+        )}
+        {predictionOutcome === "prediction-exactly-correct" && (
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon
+              icon={faSquareCheck}
+              className="aspect-square h-8 text-green-500"
+            />
+            <span className="font-semibold">Correct prediction</span>
+          </div>
+        )}
+        {predictionOutcome === "only-series-length-correct" && (
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon
+              icon={faSquareMinus}
+              className="aspect-square h-8 text-orange-500"
+            />
+            <span className="font-semibold">
+              Partially correct: predicted series length
+            </span>
+          </div>
+        )}
+        {predictionOutcome === "only-winner-correct" && (
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon
+              icon={faSquareMinus}
+              className="aspect-square h-8 text-orange-500"
+            />
+            <span className="font-semibold">
+              Partially correct: predicted winner
+            </span>
+          </div>
+        )}
+        {predictionOutcome === "prediction-totally-incorrect" && (
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon
+              icon={faSquareXmark}
+              className="aspect-square h-8 text-red-600"
+            />
+            <span className="font-semibold">Incorrect prediction</span>
+          </div>
+        )}
       </div>
     </div>
   );
