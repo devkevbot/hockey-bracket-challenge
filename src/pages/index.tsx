@@ -121,7 +121,7 @@ function Home(props: StaticProps) {
               </button>
             )}
             {status === "loading" && (
-              <div className="animate-pulse rounded-md bg-black px-4 py-3 text-white">
+              <div className="animate-pulse rounded-full bg-sky-800 px-4 py-3 text-white">
                 <span className="text-2xl font-bold md:text-3xl">
                   Loading...
                 </span>
