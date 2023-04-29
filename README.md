@@ -20,9 +20,9 @@ Your "score" is based on how correct you were; maximum points are earned for gue
 
 The breakdown is as follows:
 
-- **Exactly correct** Both the series winner and series length is correct.
-- **Partially correct** Only the series winner or series length is correct.
-- **Incorrect** Both the series winner and series length is incorrect.
+- **Correct with bonus** Both the series winner and series length is correct.
+- **Correct** Only the series winner is correct.
+- **Incorrect** The series winner is incorrect.
 
 ---
 

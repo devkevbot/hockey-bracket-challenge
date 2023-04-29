@@ -9,7 +9,6 @@ import {
   faSquareCheck,
   faLock,
   faSquareXmark,
-  faSquareMinus,
   faClock,
   faMinus,
   faMedal,
@@ -154,7 +153,7 @@ function Home(props: StaticProps) {
                       icon={faMedal}
                       className="aspect-square h-12"
                     />
-                    Get credit for partial predictions
+                    Earn bonus score for exact predictions
                   </li>
                 </ul>
               </div>
@@ -203,7 +202,34 @@ function RoundsList({ data }: { data: PlayoffsData }) {
   });
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col items-center">
+      <div className="mx-auto mb-8 rounded-2xl bg-sky-800 px-6 py-6 text-center text-white md:px-10 md:py-8">
+        <h3 className="mb-4 text-2xl font-bold md:mb-6 md:text-4xl">
+          Scoring system
+        </h3>
+        <ul className="flex flex-col gap-2 text-left text-sm leading-8 md:gap-8 md:text-lg ">
+          <li>
+            <span className="rounded-full bg-slate-500 px-2 py-1 font-semibold">
+              1 point
+            </span>{" "}
+            for predicting the series winner
+          </li>
+          <li>
+            {" "}
+            <span className="rounded-full bg-slate-500 px-2 py-1 font-semibold">
+              1 point
+            </span>{" "}
+            for predicting both the series winner and length
+          </li>
+          <li>
+            {" "}
+            <span className="rounded-full bg-slate-500 px-2 py-1 font-semibold">
+              0 points
+            </span>{" "}
+            for incorrect predictions
+          </li>
+        </ul>
+      </div>
       {roundsInDescOrd.map((round, index) => {
         if (round.number > currentRound) return null;
         return <RoundItem data={round} key={index} />;
@@ -412,7 +438,7 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
           <span className="drop-shadow">{bottomSeed.seriesRecord.wins}</span>
         </div>
       </div>
-      <div className="mb-4 rounded-md text-center md:mb-8">
+      <div className="mb-8 rounded-md text-center">
         <label
           className="mb-1 inline-block text-slate-700"
           htmlFor={data.names.seriesSlug}
@@ -466,30 +492,24 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
           </div>
         )}
         {predictionOutcome === "prediction-exactly-correct" && (
+          <div className="relative flex items-center gap-2 rounded-full bg-green-300 px-4 py-2 text-slate-800">
+            <FontAwesomeIcon
+              icon={faSquareCheck}
+              className="aspect-square h-6"
+            />
+            <span className="font-semibold">Correct winner</span>
+            <span className="absolute right-0 top-0 -translate-y-1/2 translate-x-1/2 rotate-12 rounded-full bg-yellow-300 px-2 py-1 text-sm">
+              +1 Bonus
+            </span>
+          </div>
+        )}
+        {predictionOutcome === "only-winner-correct" && (
           <div className="flex items-center gap-2 rounded-full bg-green-300 px-4 py-2 text-slate-800">
             <FontAwesomeIcon
               icon={faSquareCheck}
               className="aspect-square h-6"
             />
-            <span className="font-semibold">Correct prediction</span>
-          </div>
-        )}
-        {predictionOutcome === "only-series-length-correct" && (
-          <div className="flex items-center gap-2 rounded-full bg-orange-300 px-4 py-2 text-slate-800">
-            <FontAwesomeIcon
-              icon={faSquareMinus}
-              className="aspect-square h-6"
-            />
-            <span className="font-semibold">Only predicted series length</span>
-          </div>
-        )}
-        {predictionOutcome === "only-winner-correct" && (
-          <div className="flex items-center gap-2 rounded-full bg-orange-300 px-4 py-2 text-slate-800">
-            <FontAwesomeIcon
-              icon={faSquareMinus}
-              className="aspect-square h-6"
-            />
-            <span className="font-semibold">Only predicted winner</span>
+            <span className="font-semibold">Correct winner</span>
           </div>
         )}
         {predictionOutcome === "prediction-totally-incorrect" && (
@@ -559,7 +579,6 @@ type PredictionResult =
   | Extract<SeriesProgression, "series-not-started" | "series-in-progress">
   | "prediction-not-made"
   | "only-winner-correct"
-  | "only-series-length-correct"
   | "prediction-totally-incorrect"
   | "prediction-exactly-correct";
 
@@ -634,9 +653,6 @@ function getPredictionResult({
   }
   if (isWinnerCorrect) {
     return "only-winner-correct";
-  }
-  if (isSeriesLengthCorrect) {
-    return "only-series-length-correct";
   }
 
   return "prediction-totally-incorrect";
