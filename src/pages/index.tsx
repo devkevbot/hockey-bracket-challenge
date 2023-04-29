@@ -219,6 +219,25 @@ const NHL_TEAM_NAMES = [
 
 type NhlTeamName = (typeof NHL_TEAM_NAMES)[number];
 
+const teamNameToBorderColor: Record<NhlTeamName, string> = {
+  ["Boston Bruins"]: "border-t-[#FFB81C]",
+  ["Florida Panthers"]: "border-t-[#C8102E]",
+  ["Carolina Hurricanes"]: "border-t-[#CE1126]",
+  ["New York Islanders"]: "border-t-[#f47d30]",
+  ["New Jersey Devils"]: "border-t-[#CE1126]",
+  ["New York Rangers"]: "border-t-[#0038A8]",
+  ["Toronto Maple Leafs"]: "border-t-[#00205B]",
+  ["Tampa Bay Lightning"]: "border-t-[#002868]",
+  ["Vegas Golden Knights"]: "border-t-[#333f42]",
+  ["Winnipeg Jets"]: "border-t-[#041E42]",
+  ["Edmonton Oilers"]: "border-t-[#FF4C00]",
+  ["Los Angeles Kings"]: "border-t-[#111111]",
+  ["Colorado Avalanche"]: "border-t-[#6F263D]",
+  ["Seattle Kraken"]: "border-t-[#68a2b9]",
+  ["Dallas Stars"]: "border-t-[#006847]",
+  ["Minnesota Wild"]: "border-t-[#154734]",
+};
+
 const teamNameToBgColor: Record<NhlTeamName, string> = {
   ["Boston Bruins"]: "bg-[#FFB81C]",
   ["Florida Panthers"]: "bg-[#C8102E]",
@@ -230,7 +249,7 @@ const teamNameToBgColor: Record<NhlTeamName, string> = {
   ["Tampa Bay Lightning"]: "bg-[#002868]",
   ["Vegas Golden Knights"]: "bg-[#333f42]",
   ["Winnipeg Jets"]: "bg-[#041E42]",
-  ["Edmonton Oilers"]: "bg-orange-500",
+  ["Edmonton Oilers"]: "bg-[#FF4C00]",
   ["Los Angeles Kings"]: "bg-[#111111]",
   ["Colorado Avalanche"]: "bg-[#6F263D]",
   ["Seattle Kraken"]: "bg-[#68a2b9]",
@@ -293,7 +312,7 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
     bottomSeedActualScore: bottomSeed.seriesRecord.wins,
   });
 
-  const { predicted } = getWinnerAndLoser({
+  const { predicted, actual } = getWinnerAndLoser({
     seriesProgression,
     predictedScore,
     topSeedTeamName: topSeed.team.name,
@@ -306,6 +325,10 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
     ? teamNameToBgColor[predicted.winner.name]
     : "bg-black";
 
+  const actualWinnerBorderColor = actual.winner
+    ? teamNameToBorderColor[actual.winner.name]
+    : "border-t-transparent";
+
   const topSeedBgColor = teamNameToBgColor[topSeed.team.name];
   const bottomSeedBgColor = teamNameToBgColor[bottomSeed.team.name];
 
@@ -314,27 +337,29 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
   }
 
   return (
-    <div className="flex max-w-xs transform flex-col items-center gap-4 rounded-2xl border-2 bg-sky-100 p-4 shadow-lg">
-      <div className="flex w-full flex-col gap-2 text-center">
-        <div className="text-md flex items-center justify-center gap-2 font-semibold md:text-lg">
+    <div
+      className={`max-w-xs transform rounded-2xl bg-sky-100 p-4 shadow-lg focus:border-sky-800 ${actualWinnerBorderColor} border-t-8`}
+    >
+      <div className="mb-4 flex w-full flex-col gap-1 text-center md:mb-8">
+        <div className="text-md flex items-baseline justify-center gap-2 md:text-lg">
           <span className={`${topSeedBgColor} rounded-full p-1.5`}></span>
-          <span>
-            {topSeed.team.name} ({topSeed.seed.type})
-          </span>
+          <span className="font-semibold">{topSeed.team.name}</span>
+          <span className="text-sm text-slate-800">({topSeed.seed.type})</span>
         </div>
         <div className="flex w-full items-center">
-          <hr className="w-full border-2 border-black" />
-          <span className="px-2 font-bold">VS</span>
-          <hr className="w-full border-2 border-black" />
+          <hr className="border-1 w-full border-slate-500" />
+          <span className="px-2 text-xs text-slate-500">VS</span>
+          <hr className="border-1 w-full border-slate-500" />
         </div>
-        <div className="text-md flex items-center justify-center gap-2 font-semibold md:text-lg">
+        <div className="text-md flex items-baseline justify-center gap-2 md:text-lg">
           <span className={`${bottomSeedBgColor} rounded-full p-1.5`}></span>
-          <span>
-            {bottomSeed.team.name} ({bottomSeed.seed.type})
+          <span className="font-semibold">{bottomSeed.team.name}</span>
+          <span className="text-sm text-slate-800">
+            ({bottomSeed.seed.type})
           </span>
         </div>
       </div>
-      <div className="text-md grid w-full grid-cols-2 divide-x rounded-md text-center font-semibold text-white md:text-lg">
+      <div className="text-md mb-4 grid w-full grid-cols-2 rounded-md text-center font-semibold text-white md:mb-8 md:text-lg">
         <div
           className={`${topSeedBgColor} flex items-center justify-center gap-2 rounded-l-full py-2`}
         >
@@ -348,35 +373,41 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
           <span className="drop-shadow">{bottomSeed.seriesRecord.wins}</span>
         </div>
       </div>
-      <h3 className="text-md -mb-2 font-semibold md:text-lg">
-        Series Prediction
-      </h3>
-      <select
-        className={`w-full cursor-pointer rounded-full px-5 py-3 text-center font-semibold text-white drop-shadow disabled:cursor-not-allowed ${predictedWinnerBgColor}`}
-        value={predictedScore}
-        onChange={(event) =>
-          onChangePrediction({
-            slug: data.names.seriesSlug,
-            score: event.target.value as PredictionScore,
-          })
-        }
-        disabled={seriesProgression !== "series-not-started"}
-      >
-        <option disabled className="hidden" value="no-prediction">
-          Choose prediction
-        </option>
-        <optgroup label={`${topSeed.team.name} win`}></optgroup>
-        <option value="4-0">4-0 {topSeed.team.name}</option>
-        <option value="4-1">4-1 {topSeed.team.name}</option>
-        <option value="4-2">4-2 {topSeed.team.name}</option>
-        <option value="4-3">4-3 {topSeed.team.name}</option>
-        <optgroup label={`${bottomSeed.team.name} win`}></optgroup>
-        <option value="0-4">4-0 {bottomSeed.team.name}</option>
-        <option value="1-4">4-1 {bottomSeed.team.name}</option>
-        <option value="2-4">4-2 {bottomSeed.team.name}</option>
-        <option value="3-4">4-3 {bottomSeed.team.name}</option>
-      </select>
-      <div className="md:text-md flex flex-col gap-4 text-sm">
+      <div className="mb-4 rounded-md text-center md:mb-8">
+        <label
+          className="mb-1 inline-block text-slate-700"
+          htmlFor={data.names.seriesSlug}
+        >
+          Series Prediction
+        </label>
+        <select
+          id={data.names.seriesSlug}
+          className={`w-full cursor-pointer rounded-full px-5 py-3 text-center font-semibold text-white drop-shadow disabled:cursor-not-allowed ${predictedWinnerBgColor}`}
+          value={predictedScore}
+          onChange={(event) =>
+            onChangePrediction({
+              slug: data.names.seriesSlug,
+              score: event.target.value as PredictionScore,
+            })
+          }
+          disabled={seriesProgression !== "series-not-started"}
+        >
+          <option disabled className="hidden" value="no-prediction">
+            Choose prediction
+          </option>
+          <optgroup label={`${topSeed.team.name} win`}></optgroup>
+          <option value="4-0">4-0 {topSeed.team.name}</option>
+          <option value="4-1">4-1 {topSeed.team.name}</option>
+          <option value="4-2">4-2 {topSeed.team.name}</option>
+          <option value="4-3">4-3 {topSeed.team.name}</option>
+          <optgroup label={`${bottomSeed.team.name} win`}></optgroup>
+          <option value="0-4">4-0 {bottomSeed.team.name}</option>
+          <option value="1-4">4-1 {bottomSeed.team.name}</option>
+          <option value="2-4">4-2 {bottomSeed.team.name}</option>
+          <option value="3-4">4-3 {bottomSeed.team.name}</option>
+        </select>
+      </div>
+      <div className="md:text-md flex justify-center text-center">
         {predictionOutcome === "series-not-started" && (
           <div className="flex items-center gap-2 rounded-full bg-blue-200 px-4 py-2 text-slate-800">
             <FontAwesomeIcon icon={faClock} className="aspect-square h-6" />
