@@ -14,6 +14,7 @@ import {
   faMinus,
 } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "react-toastify";
+import Image from "next/image";
 
 const WINS_REQUIRED_IN_SERIES = 4;
 
@@ -114,10 +115,18 @@ function Home(props: StaticProps) {
           <div className="flex flex-col items-center justify-center gap-4">
             {status === "unauthenticated" && (
               <button
-                className="rounded-lg bg-black px-10 py-3 font-semibold text-white no-underline transition hover:bg-black/20"
-                onClick={() => void signIn()}
+                className="flex flex-col items-center gap-4 rounded-full bg-[#5865F2] px-10 py-4 text-xl font-semibold text-white no-underline transition hover:bg-black/40 md:flex-row md:text-2xl"
+                onClick={() => void signIn("discord")}
               >
-                {"Sign in"}
+                <span className="hidden md:inline-block">{"Sign in with"}</span>
+                <Image
+                  className="hidden md:inline-block"
+                  src="/discord_white.png"
+                  alt=""
+                  width={195}
+                  height={37}
+                />
+                <span className="md:hidden">{"Sign in with Discord"}</span>
               </button>
             )}
             {status === "loading" && (
