@@ -1,8 +1,8 @@
-# Hockey Bracket Challenge
+# [Hockey Bracket Challenge](https://hockey-bracket-challenge.vercel.app/)
 
-A small project used to record my predictions for the 2023 NHL Playoffs. Available at https://hockey-bracket-challenge.vercel.app/
+## A small project used to record my predictions for the 2023 NHL Playoffs. Available [here](https://hockey-bracket-challenge.vercel.app/).
 
-![image](https://user-images.githubusercontent.com/31908183/235097489-ccdde4ca-ea05-4712-96da-ae46205efb04.png)
+![image](https://user-images.githubusercontent.com/31908183/235287852-a79b943e-39e5-4e88-9fc0-e6ff21158def.png)
 
 ---
 
