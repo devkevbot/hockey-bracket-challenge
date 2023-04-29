@@ -12,6 +12,9 @@ import {
   faSquareMinus,
   faClock,
   faMinus,
+  faMedal,
+  faDollarSign,
+  faListCheck,
 } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "react-toastify";
 import Image from "next/image";
@@ -102,7 +105,7 @@ function Home(props: StaticProps) {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <main className="flex min-h-screen flex-col items-center justify-center">
-        <div className="container flex flex-col items-center justify-center gap-4 px-4 py-16">
+        <div className="container flex flex-col items-center justify-center gap-8 px-4 py-16">
           <div className="flex flex-col items-center gap-4 xl:flex-row xl:gap-8">
             <picture>
               <source media="(min-width: 640px)" srcSet="puck-128.png" />
@@ -112,22 +115,49 @@ function Home(props: StaticProps) {
               NHL Playoff Predictions
             </h1>
           </div>
-          <div className="flex flex-col items-center justify-center gap-4">
+          <div className="gap flex flex-col items-center justify-center">
             {status === "unauthenticated" && (
-              <button
-                className="flex flex-col items-center gap-4 rounded-full bg-[#5865F2] px-10 py-4 text-xl font-semibold text-white no-underline transition hover:bg-black/40 md:flex-row md:text-2xl"
-                onClick={() => void signIn("discord")}
-              >
-                <span className="hidden md:inline-block">{"Sign in with"}</span>
-                <Image
-                  className="hidden md:inline-block"
-                  src="/discord_white.png"
-                  alt=""
-                  width={195}
-                  height={37}
-                />
-                <span className="md:hidden">{"Sign in with Discord"}</span>
-              </button>
+              <div className="flex flex-col gap-10">
+                <button
+                  className="flex flex-col items-center gap-4 rounded-full bg-[#5865F2] px-10 py-4 text-xl font-semibold text-white no-underline transition hover:bg-black/40 md:flex-row md:text-2xl"
+                  onClick={() => void signIn("discord")}
+                >
+                  <span className="hidden md:inline-block">
+                    {"Sign in with"}
+                  </span>
+                  <Image
+                    className="hidden md:inline-block"
+                    src="/discord_white.png"
+                    alt=""
+                    width={195}
+                    height={37}
+                  />
+                  <span className="md:hidden">{"Sign in with Discord"}</span>
+                </button>
+                <ul className="flex flex-col gap-8 rounded-md text-2xl font-semibold text-white">
+                  <li className="flex items-center gap-4">
+                    <FontAwesomeIcon
+                      icon={faDollarSign}
+                      className="aspect-square h-12"
+                    />
+                    Completely free, play for $0
+                  </li>
+                  <li className="flex items-center gap-4">
+                    <FontAwesomeIcon
+                      icon={faListCheck}
+                      className="aspect-square h-12"
+                    />
+                    Predict each series round-by-round
+                  </li>
+                  <li className="flex items-center gap-4">
+                    <FontAwesomeIcon
+                      icon={faMedal}
+                      className="aspect-square h-12"
+                    />
+                    Get credit for partial predictions
+                  </li>
+                </ul>
+              </div>
             )}
             {status === "loading" && (
               <div className="animate-pulse rounded-full bg-sky-800 px-4 py-3 text-white">
