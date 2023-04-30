@@ -1,21 +1,10 @@
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { z } from "zod";
-
-const POSSIBLE_SCORES = [
-  "4-0",
-  "4-1",
-  "4-2",
-  "4-3",
-  "0-4",
-  "1-4",
-  "2-4",
-  "3-4",
-  "no-prediction",
-] as const;
+import { SERIES_WIN_SCORES } from "~/globals";
 
 export const predictionRouter = createTRPCRouter({
   upsert: protectedProcedure
-    .input(z.object({ slug: z.string(), score: z.enum(POSSIBLE_SCORES) }))
+    .input(z.object({ slug: z.string(), score: z.enum(SERIES_WIN_SCORES) }))
     .mutation(({ ctx, input }) => {
       return ctx.prisma.prediction.upsert({
         create: {
@@ -42,6 +31,32 @@ export const predictionRouter = createTRPCRouter({
           userId: ctx.session.user.id,
           slug: input.slug,
         },
+      });
+    }),
+  getByPlayoffRound: protectedProcedure
+    .input(z.object({ round: z.number().min(1).max(4) }))
+    .query(async ({ ctx, input }) => {
+      const series = await ctx.prisma.series.findMany({
+        where: {
+          round: input.round,
+        },
+      });
+
+      const slugs = series.map((s) => s.slug);
+
+      const data = await ctx.prisma.prediction.findMany({
+        where: {
+          userId: ctx.session.user.id,
+          slug: {
+            in: slugs,
+          },
+        },
+      });
+      return data.map((d) => {
+        return {
+          ...d,
+          score: z.enum(SERIES_WIN_SCORES).parse(d.score),
+        };
       });
     }),
 });

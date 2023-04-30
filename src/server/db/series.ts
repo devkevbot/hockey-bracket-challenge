@@ -52,8 +52,8 @@ export async function upsertSeries(
         bottomSeedWins: bottomSeed?.seriesRecord.wins,
         bottomSeedTeamName: bottomSeed?.team.name,
         bottomSeedTeamNameShort: series?.names.teamAbbreviationB,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         winner,
+        currGameStartTime: series?.currentGame.seriesSummary.gameTime,
       },
       create: {
         round: currRound?.number ?? -1,
@@ -68,6 +68,7 @@ export async function upsertSeries(
         bottomSeedTeamName: bottomSeed?.team.name || "",
         bottomSeedTeamNameShort: series?.names.teamAbbreviationB || "",
         winner,
+        currGameStartTime: series?.currentGame.seriesSummary.gameTime,
       },
     });
   }

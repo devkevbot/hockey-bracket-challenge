@@ -1,24 +1,30 @@
-import { useEffect, useState } from "react";
-import Head from "next/head";
-import { signIn, useSession } from "next-auth/react";
-import { type RouterInputs, api } from "~/utils/api";
-import { type InferGetStaticPropsType } from "next";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faSquareCheck,
-  faLock,
-  faSquareXmark,
   faClock,
-  faMinus,
-  faMedal,
   faDollarSign,
   faListCheck,
+  faLock,
+  faMedal,
+  faSquareCheck,
+  faSquareXmark,
 } from "@fortawesome/free-solid-svg-icons";
-import { toast } from "react-toastify";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { type Winner } from "@prisma/client";
+import { type InferGetStaticPropsType } from "next";
+import { signIn, useSession } from "next-auth/react";
+import Head from "next/head";
 import Image from "next/image";
+import { toast } from "react-toastify";
+import {
+  BOTTOM_SEED_SERIES_WIN_SCORES,
+  TOP_SEED_SERIES_WIN_SCORES,
+  WINS_REQUIRED_IN_SERIES,
+  type NhlTeamName,
+  type SeriesPossibleScore,
+  type SeriesWinScore,
+} from "~/globals";
 import { fetchPlayoffData } from "~/server/api/external/nhl";
-import { WINS_REQUIRED_IN_SERIES, type NhlTeamName } from "~/globals";
 import { upsertSeries } from "~/server/db/series";
+import { api, type RouterInputs, type RouterOutputs } from "~/utils/api";
 
 export async function getStaticProps() {
   const result = await fetchPlayoffData();
@@ -194,24 +200,38 @@ function RoundItem({ data }: { data: PlayoffRound }) {
       <h3 className="mb-8 mt-4 w-fit rounded-full bg-sky-800 px-8 py-4 text-center text-4xl font-bold text-white">
         {data.names.name}
       </h3>
-      <SeriesList data={data.series} />
+      <SeriesList roundNumber={data.number} />
     </div>
   );
 }
 
-type PlayoffSeries = PlayoffRound["series"];
+function SeriesList({ roundNumber }: { roundNumber: number }) {
+  const predictionsQuery = api.prediction.getByPlayoffRound.useQuery({
+    round: roundNumber,
+  });
+  const seriesQuery = api.series.getByPlayoffRound.useQuery({
+    round: roundNumber,
+  });
 
-function SeriesList({ data }: { data: PlayoffSeries }) {
+  if (predictionsQuery.isLoading || seriesQuery.isLoading) {
+    return <SeriesItemSkeletonLoader />;
+  }
+
+  if (!predictionsQuery.data || !seriesQuery.data) {
+    return <SeriesItemSkeletonLoader />;
+  }
+
   return (
     <div className="grid w-full grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {data.map((series, index) => {
-        return <SeriesItem data={series} key={index} />;
+      {seriesQuery.data.map((s, index) => {
+        const prediction = predictionsQuery.data.find((p) => p.slug === s.slug);
+        return <SeriesItem key={index} series={s} prediction={prediction} />;
       })}
     </div>
   );
 }
 
-const teamNameToBorderColor: Record<NhlTeamName, string> = {
+const teamNameToBorderTop: Record<NhlTeamName, string> = {
   ["Boston Bruins"]: "border-t-[#FFB81C]",
   ["Florida Panthers"]: "border-t-[#C8102E]",
   ["Carolina Hurricanes"]: "border-t-[#CE1126]",
@@ -249,30 +269,24 @@ const teamNameToBgColor: Record<NhlTeamName, string> = {
   ["Minnesota Wild"]: "bg-[#154734]",
 };
 
+type PredictionGetByRoundOutput =
+  RouterOutputs["prediction"]["getByPlayoffRound"][number];
+type SeriesGetByRoundOutput =
+  RouterOutputs["series"]["getByPlayoffRound"][number];
 type PredictionUpsertInput = RouterInputs["prediction"]["upsert"];
-type PredictionScore = PredictionUpsertInput["score"];
 
-function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
-  const {
-    data: prediction,
-    isLoading: isLoadingPrediction,
-    isSuccess: isSuccessPrediction,
-  } = api.prediction.getBySlug.useQuery({
-    slug: data.names.seriesSlug,
-  });
-
-  const [predictedScore, setPredictedScore] =
-    useState<PredictionScore>("no-prediction");
-
-  useEffect(() => {
-    if (!isSuccessPrediction || !prediction?.score) return;
-    setPredictedScore(prediction.score as PredictionScore);
-  }, [prediction, isSuccessPrediction]);
-
+function SeriesItem({
+  series,
+  prediction,
+}: {
+  series: SeriesGetByRoundOutput;
+  prediction?: PredictionGetByRoundOutput;
+}) {
+  const utils = api.useContext();
   const predictionMutation = api.prediction.upsert.useMutation({
-    onSuccess({ score }) {
-      setPredictedScore(score as PredictionScore);
+    onSuccess() {
       toast.success("Saved prediction");
+      void utils.prediction.getByPlayoffRound.invalidate();
     },
     onError() {
       toast.error("Failed to save prediction");
@@ -280,63 +294,44 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
   });
 
   function onChangePrediction(params: PredictionUpsertInput) {
-    predictionMutation.mutate({ slug: params.slug, score: params.score });
+    predictionMutation.mutate({ ...params });
   }
 
-  const topSeed = data.matchupTeams?.find((team) => team.seed.isTop);
-  const bottomSeed = data.matchupTeams?.find((team) => !team.seed.isTop);
-  if (!topSeed || !bottomSeed || !data.names.seriesSlug) {
-    return null;
-  }
-
-  const seriesProgression = getSeriesProgression({
-    topSeedScore: topSeed.seriesRecord.wins,
-    bottomSeedScore: bottomSeed.seriesRecord.wins,
-    currentGameStartTime: data.currentGame.seriesSummary.gameTime,
+  const predictionState = derivePredictionState({
+    predScore: prediction?.score,
+    actualScore: series.score,
+    currGameStartTime: series.currGameStartTime,
   });
 
-  const predictionOutcome = getPredictionResult({
-    seriesProgression,
-    predictedScore,
-    topSeedTeamName: topSeed.team.name,
-    topSeedActualScore: topSeed.seriesRecord.wins,
-    bottomSeedTeamName: bottomSeed.team.name,
-    bottomSeedActualScore: bottomSeed.seriesRecord.wins,
+  const predictedWinner = getPredictedWinnerName({
+    predScore: prediction?.score,
+    topSeedTeamName: series.topSeedTeamName,
+    bottomSeedTeamName: series.bottomSeedTeamName,
   });
-
-  const { predicted, actual } = getWinnerAndLoser({
-    seriesProgression,
-    predictedScore,
-    topSeedTeamName: topSeed.team.name,
-    topSeedActualScore: topSeed.seriesRecord.wins,
-    bottomSeedTeamName: bottomSeed.team.name,
-    bottomSeedActualScore: bottomSeed.seriesRecord.wins,
-  });
-
-  const predictedWinnerBgColor = predicted.winner
-    ? teamNameToBgColor[predicted.winner.name]
+  const predictedWinnerBgColor = predictedWinner
+    ? teamNameToBgColor[predictedWinner]
     : "bg-sky-700";
 
-  const actualWinnerBorderColor = actual.winner
-    ? teamNameToBorderColor[actual.winner.name]
+  const actualWinner = getActualWinnerName({
+    winner: series.winner,
+    topSeedTeamName: series.topSeedTeamName,
+    bottomSeedTeamName: series.bottomSeedTeamName,
+  });
+  const actualWinnerBorderTopColor = actualWinner
+    ? teamNameToBorderTop[actualWinner]
     : "border-t-transparent";
 
-  const topSeedBgColor = teamNameToBgColor[topSeed.team.name];
-  const bottomSeedBgColor = teamNameToBgColor[bottomSeed.team.name];
-
-  if (isLoadingPrediction) {
-    return <SeriesItemSkeletonLoader />;
-  }
+  const topSeedBgColor = teamNameToBgColor[series.topSeedTeamName];
+  const bottomSeedBgColor = teamNameToBgColor[series.bottomSeedTeamName];
 
   return (
     <div
-      className={`max-w-xs transform rounded-2xl bg-sky-100 p-4 shadow-lg focus:border-sky-800 ${actualWinnerBorderColor} border-t-8`}
+      className={`max-w-xs transform rounded-2xl bg-sky-100 p-4 shadow-lg focus:border-sky-800 ${actualWinnerBorderTopColor} border-t-8`}
     >
       <div className="mb-4 flex w-full flex-col gap-1 text-center md:mb-8">
         <div className="text-md flex items-baseline justify-center gap-2 md:text-lg">
           <span className={`${topSeedBgColor} rounded-full p-1.5`}></span>
-          <span className="font-semibold">{topSeed.team.name}</span>
-          <span className="text-sm text-slate-800">({topSeed.seed.type})</span>
+          <span className="font-semibold">{series.topSeedTeamName}</span>
         </div>
         <div className="flex w-full items-center">
           <hr className="border-1 w-full border-slate-500" />
@@ -345,345 +340,224 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
         </div>
         <div className="text-md flex items-baseline justify-center gap-2 md:text-lg">
           <span className={`${bottomSeedBgColor} rounded-full p-1.5`}></span>
-          <span className="font-semibold">{bottomSeed.team.name}</span>
-          <span className="text-sm text-slate-800">
-            ({bottomSeed.seed.type})
-          </span>
+          <span className="font-semibold">{series.bottomSeedTeamName}</span>
         </div>
       </div>
       <div className="text-md mb-4 grid w-full grid-cols-2 rounded-md text-center font-semibold text-white md:mb-8 md:text-lg">
         <div
           className={`${topSeedBgColor} flex items-center justify-center gap-2 rounded-l-full py-2`}
         >
-          <span className="drop-shadow">{data.names.teamAbbreviationA}</span>
-          <span className="drop-shadow">{topSeed.seriesRecord.wins}</span>
+          <span className="drop-shadow">{series.topSeedTeamNameShort}</span>
+          <span className="drop-shadow">{series.topSeedWins}</span>
         </div>
         <div
           className={`${bottomSeedBgColor} flex items-center justify-center gap-2 rounded-r-full py-2`}
         >
-          <span className="drop-shadow">{data.names.teamAbbreviationB}</span>
-          <span className="drop-shadow">{bottomSeed.seriesRecord.wins}</span>
+          <span className="drop-shadow">{series.bottomSeedTeamNameShort}</span>
+          <span className="drop-shadow">{series.bottomSeedWins}</span>
         </div>
       </div>
       <div className="mb-8 rounded-md text-center">
         <label
           className="mb-1 inline-block text-slate-700"
-          htmlFor={data.names.seriesSlug}
+          htmlFor={series.slug}
         >
           Series Prediction
         </label>
         <select
-          id={data.names.seriesSlug}
+          id={series.slug}
           className={`w-full cursor-pointer rounded-full px-5 py-3 text-center font-semibold text-white drop-shadow disabled:cursor-not-allowed ${predictedWinnerBgColor}`}
-          value={predictedScore}
-          onChange={(event) =>
+          value={prediction?.score}
+          onChange={(event) => {
             onChangePrediction({
-              slug: data.names.seriesSlug,
-              score: event.target.value as PredictionScore,
-            })
-          }
-          disabled={seriesProgression !== "series-not-started"}
+              slug: series.slug,
+              score: event.target.value as SeriesWinScore,
+            });
+          }}
+          disabled={predictionState !== "prediction-can-be-made"}
         >
           <option disabled className="hidden" value="no-prediction">
-            {seriesProgression === "series-not-started" && "Choose prediction"}
-            {seriesProgression !== "series-not-started" &&
-              "No prediction available"}
+            {predictionState === "prediction-can-be-made" &&
+              "Choose prediction"}
+            {predictionState !== "prediction-locked-in" &&
+              "Prediction unavailable"}
           </option>
-          <optgroup label={`${topSeed.team.name} win`}></optgroup>
-          <option value="4-0">4-0 {topSeed.team.name}</option>
-          <option value="4-1">4-1 {topSeed.team.name}</option>
-          <option value="4-2">4-2 {topSeed.team.name}</option>
-          <option value="4-3">4-3 {topSeed.team.name}</option>
-          <optgroup label={`${bottomSeed.team.name} win`}></optgroup>
-          <option value="0-4">4-0 {bottomSeed.team.name}</option>
-          <option value="1-4">4-1 {bottomSeed.team.name}</option>
-          <option value="2-4">4-2 {bottomSeed.team.name}</option>
-          <option value="3-4">4-3 {bottomSeed.team.name}</option>
+          <optgroup label={`${series.topSeedTeamName} win`}></optgroup>
+          {TOP_SEED_SERIES_WIN_SCORES.map((score) => {
+            return (
+              <option key={score} value={score}>
+                {score} {series.topSeedTeamName}
+              </option>
+            );
+          })}
+          <optgroup label={`${series.bottomSeedTeamName} win`}></optgroup>
+          {BOTTOM_SEED_SERIES_WIN_SCORES.map((score) => {
+            return (
+              <option key={score} value={score}>
+                {score} {series.bottomSeedTeamName}
+              </option>
+            );
+          })}
         </select>
       </div>
-      <div className="md:text-md flex justify-center text-center">
-        {predictionOutcome === "series-not-started" && (
-          <div className="flex items-center gap-2 rounded-full bg-blue-200 px-4 py-2 text-slate-800">
-            <FontAwesomeIcon icon={faClock} className="aspect-square h-6" />
-            <span className="font-semibold">Series not started</span>
-          </div>
-        )}
-        {predictionOutcome === "series-in-progress" && (
-          <div className="flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-slate-800">
-            <FontAwesomeIcon icon={faLock} className="aspect-square h-6" />
-            <span className="font-semibold">Series in progress</span>
-          </div>
-        )}
-        {predictionOutcome === "prediction-not-made" && (
-          <div className="flex items-center gap-2 rounded-full bg-slate-300 px-4 py-2 text-slate-800">
-            <FontAwesomeIcon icon={faMinus} className="aspect-square h-6" />
-            <span className="font-semibold">Series over</span>
-          </div>
-        )}
-        {predictionOutcome === "prediction-exactly-correct" && (
-          <div className="relative flex items-center gap-2 rounded-full bg-green-300 px-4 py-2 text-slate-800">
-            <FontAwesomeIcon
-              icon={faSquareCheck}
-              className="aspect-square h-6"
-            />
-            <span className="font-semibold">Correct winner</span>
-            <span className="absolute right-0 top-0 -translate-y-1/2 translate-x-1/2 rotate-12 rounded-full bg-yellow-300 px-2 py-1 text-sm">
-              +1 Bonus
-            </span>
-          </div>
-        )}
-        {predictionOutcome === "only-winner-correct" && (
-          <div className="flex items-center gap-2 rounded-full bg-green-300 px-4 py-2 text-slate-800">
-            <FontAwesomeIcon
-              icon={faSquareCheck}
-              className="aspect-square h-6"
-            />
-            <span className="font-semibold">Correct winner</span>
-          </div>
-        )}
-        {predictionOutcome === "prediction-totally-incorrect" && (
-          <div className="flex items-center gap-2 rounded-full bg-red-300 px-4 py-2 text-slate-800">
-            <FontAwesomeIcon
-              icon={faSquareXmark}
-              className="aspect-square h-6"
-            />
-            <span className="font-semibold">Incorrect prediction</span>
-          </div>
-        )}
-      </div>
+      <SeriesItemStateBadge state={predictionState} />
     </div>
   );
 }
 
-type SeriesProgression =
-  | "series-not-started"
-  | "series-in-progress"
-  | "series-finished";
-type SeriesProgressionInputs = {
-  topSeedScore: number;
-  bottomSeedScore: number;
-  currentGameStartTime?: string;
-};
+type PredictionState =
+  | "prediction-can-be-made"
+  | "prediction-locked-in"
+  | "prediction-correct-no-bonus"
+  | "prediction-correct-with-bonus"
+  | "prediction-incorrect";
 
-function getSeriesProgression({
-  topSeedScore,
-  bottomSeedScore,
-  currentGameStartTime,
-}: SeriesProgressionInputs): SeriesProgression {
-  const isSeriesOver = getIsSeriesOver(topSeedScore, bottomSeedScore);
-  if (isSeriesOver) return "series-finished";
+function derivePredictionState({
+  predScore,
+  actualScore,
+  currGameStartTime,
+}: {
+  predScore?: SeriesWinScore;
+  actualScore: SeriesPossibleScore;
+  currGameStartTime: string | null;
+}): PredictionState {
+  const isSeriesStarted = seriesStarted({ actualScore, currGameStartTime });
+  if (!isSeriesStarted) return "prediction-can-be-made";
 
-  const isSeriesStarted = getIsSeriesStarted({
-    topSeedScore,
-    bottomSeedScore,
-    currentGameStartTime,
-  });
-  if (isSeriesStarted) return "series-in-progress";
+  const isSeriesOver = seriesOver({ actualScore });
+  if (!isSeriesOver) return "prediction-locked-in";
 
-  return "series-not-started";
+  const isWinnerCorrect = seriesWinnerCorrect({ predScore, actualScore });
+  if (!isWinnerCorrect) return "prediction-incorrect";
+
+  const isLengthCorrect = seriesLengthCorrect({ predScore, actualScore });
+  if (!isLengthCorrect) return "prediction-correct-no-bonus";
+
+  return "prediction-correct-with-bonus";
 }
 
-function getIsSeriesOver(
-  topSeedScore: SeriesProgressionInputs["topSeedScore"],
-  bottomSeedScore: SeriesProgressionInputs["bottomSeedScore"]
-) {
-  const isSeriesOver = [topSeedScore, bottomSeedScore].some(
-    (value) => value === WINS_REQUIRED_IN_SERIES
+function seriesStarted({
+  actualScore,
+  currGameStartTime,
+}: {
+  actualScore: string;
+  currGameStartTime: string | null;
+}): boolean {
+  const actual = parseScoreString(actualScore);
+  if (!actual) {
+    return false;
+  }
+
+  const [topWins, botWins] = actual;
+
+  const topHasWonGame = topWins > 0;
+  const botHasWonGame = botWins > 0;
+  const currGameStarted = Boolean(
+    currGameStartTime && new Date() >= new Date(currGameStartTime)
   );
-  return isSeriesOver;
+  return topHasWonGame || botHasWonGame || currGameStarted;
 }
 
-function getIsSeriesStarted({
-  topSeedScore,
-  bottomSeedScore,
-  currentGameStartTime,
-}: SeriesProgressionInputs) {
-  const currentGameStarted =
-    currentGameStartTime && new Date() >= new Date(currentGameStartTime);
-  const eitherTeamHasScore = topSeedScore > 0 || bottomSeedScore > 0;
-  return currentGameStarted || eitherTeamHasScore;
+function seriesOver({ actualScore }: { actualScore: string }): boolean {
+  const actual = parseScoreString(actualScore);
+  if (!actual) {
+    return false;
+  }
+
+  const [topWins, botWins] = actual;
+
+  const topHasWonSeries = topWins === WINS_REQUIRED_IN_SERIES;
+  const botHasWonSeries = botWins === WINS_REQUIRED_IN_SERIES;
+  return topHasWonSeries || botHasWonSeries;
 }
 
-type PredictionResult =
-  | Extract<SeriesProgression, "series-not-started" | "series-in-progress">
-  | "prediction-not-made"
-  | "only-winner-correct"
-  | "prediction-totally-incorrect"
-  | "prediction-exactly-correct";
-
-function getPredictionResult({
-  seriesProgression,
-  predictedScore,
-  topSeedTeamName,
-  topSeedActualScore,
-  bottomSeedTeamName,
-  bottomSeedActualScore,
+function seriesWinnerCorrect({
+  actualScore,
+  predScore,
 }: {
-  seriesProgression: SeriesProgression;
-  predictedScore: PredictionScore;
-  topSeedTeamName: NhlTeamName;
-  topSeedActualScore: number;
-  bottomSeedTeamName: NhlTeamName;
-  bottomSeedActualScore: number;
-}): PredictionResult {
-  if (seriesProgression === "series-not-started") {
-    return seriesProgression;
-  }
-
-  // Locked: if the series has started, the user cannot change their prediction.
-  if (seriesProgression === "series-in-progress") {
-    return seriesProgression;
-  }
-
-  if (
-    predictedScore === "no-prediction" &&
-    seriesProgression === "series-finished"
-  ) {
-    return "prediction-not-made";
-  }
-
-  const { predicted, actual } = getWinnerAndLoser({
-    seriesProgression,
-    predictedScore,
-    topSeedTeamName,
-    topSeedActualScore,
-    bottomSeedTeamName,
-    bottomSeedActualScore,
-  });
-
-  // If we don't get data from getWinnerAndLoser(), that means the one or more
-  // of the following is true:
-  //
-  // 1. The user didn't make a prediction prior to the series starting, in which
-  //    case their prediction should be considered incorrect.
-  // 2. We won't know the actual winner/loser because the series isn't finished.
-  //    A check for the series being over should have been done in an above
-  //    black of code.
-  if (
-    !predicted.winner ||
-    !predicted.loser ||
-    !actual.winner ||
-    !actual.loser
-  ) {
-    return "prediction-totally-incorrect";
-  }
-
-  const isWinnerCorrect = predicted.winner.name === actual.winner.name;
-
-  const predictedSeriesLength = predicted.winner.score + predicted.loser.score;
-  const actualSeriesLength = actual.winner.score + actual.loser.score;
-  const isSeriesLengthCorrect = predictedSeriesLength === actualSeriesLength;
-
-  if (isWinnerCorrect && isSeriesLengthCorrect) {
-    return "prediction-exactly-correct";
-  }
-  if (isWinnerCorrect) {
-    return "only-winner-correct";
-  }
-
-  return "prediction-totally-incorrect";
+  actualScore: SeriesPossibleScore;
+  predScore?: SeriesWinScore;
+}): boolean {
+  if (!predScore) return false;
+  return actualScore === predScore;
 }
 
-type SeriesWinnerLoser = {
-  predicted: {
-    winner: TeamInSeries | null;
-    loser: TeamInSeries | null;
-  };
-  actual: {
-    winner: TeamInSeries | null;
-    loser: TeamInSeries | null;
-  };
-};
-type TeamInSeries = {
-  name: NhlTeamName;
-  score: number;
-};
-
-function getWinnerAndLoser({
-  seriesProgression,
-  predictedScore,
-  topSeedTeamName,
-  topSeedActualScore,
-  bottomSeedTeamName,
-  bottomSeedActualScore,
+function seriesLengthCorrect({
+  actualScore,
+  predScore,
 }: {
-  seriesProgression: SeriesProgression;
-  predictedScore: PredictionScore;
+  actualScore: SeriesPossibleScore;
+  predScore?: SeriesWinScore;
+}): boolean {
+  const predicted = parseScoreString(predScore);
+  if (!predicted) {
+    return false;
+  }
+
+  const actual = parseScoreString(actualScore);
+  if (!actual) {
+    return false;
+  }
+
+  const [predTop, predBot] = predicted;
+  const [actualTop, actualBot] = actual;
+  return predTop === actualTop && predBot === actualBot;
+}
+
+function parseScoreString(score?: string) {
+  if (!score || score.length === 0) {
+    return null;
+  }
+
+  const [topWins, botWins] = score.split("-");
+  if (!topWins || !botWins) {
+    return null;
+  }
+
+  const topWinsNumeric = parseInt(topWins, 10);
+  const botWinsNumeric = parseInt(botWins, 10);
+  return [topWinsNumeric, botWinsNumeric] as [number, number];
+}
+
+function getPredictedWinnerName({
+  topSeedTeamName,
+  bottomSeedTeamName,
+  predScore,
+}: {
   topSeedTeamName: NhlTeamName;
-  topSeedActualScore: number;
   bottomSeedTeamName: NhlTeamName;
-  bottomSeedActualScore: number;
+  predScore?: SeriesWinScore;
 }) {
-  const result: SeriesWinnerLoser = {
-    predicted: {
-      winner: null,
-      loser: null,
-    },
-    actual: {
-      winner: null,
-      loser: null,
-    },
-  };
-
-  // We only want to attempt to parse the user prediction if they cast one.
-  if (predictedScore !== "no-prediction") {
-    const [topSeedPredictedScore, bottomSeedPredictedScore] = predictedScore
-      .split("-")
-      .map((val) => parseInt(val, 10));
-    if (
-      topSeedPredictedScore === undefined ||
-      bottomSeedPredictedScore === undefined
-    ) {
-      // We could also check if each score is a sane number, but if that's not
-      // the case at this point, something very bad has happened.
-      return result;
-    }
-
-    if (topSeedPredictedScore > bottomSeedPredictedScore) {
-      result.predicted.winner = {
-        name: topSeedTeamName,
-        score: topSeedPredictedScore,
-      };
-      result.predicted.loser = {
-        name: bottomSeedTeamName,
-        score: bottomSeedPredictedScore,
-      };
-    } else if (bottomSeedPredictedScore > topSeedPredictedScore) {
-      result.predicted.winner = {
-        name: bottomSeedTeamName,
-        score: bottomSeedPredictedScore,
-      };
-      result.predicted.loser = {
-        name: topSeedTeamName,
-        score: topSeedPredictedScore,
-      };
-    }
+  const predicted = parseScoreString(predScore);
+  if (!predicted) {
+    return false;
   }
 
-  // Only lookup the actual winner/loser when the series is finished
-  if (seriesProgression === "series-finished") {
-    if (topSeedActualScore > bottomSeedActualScore) {
-      result.actual.winner = {
-        name: topSeedTeamName,
-        score: topSeedActualScore,
-      };
-      result.actual.loser = {
-        name: bottomSeedTeamName,
-        score: bottomSeedActualScore,
-      };
-    } else if (bottomSeedActualScore > topSeedActualScore) {
-      result.actual.winner = {
-        name: bottomSeedTeamName,
-        score: bottomSeedActualScore,
-      };
-      result.actual.loser = {
-        name: topSeedTeamName,
-        score: topSeedActualScore,
-      };
-    }
+  const [predTop, predBot] = predicted;
+  if (predTop > predBot) {
+    return topSeedTeamName;
+  } else if (predBot > predTop) {
+    return bottomSeedTeamName;
   }
+  return null;
+}
 
-  return result;
+function getActualWinnerName({
+  winner,
+  topSeedTeamName,
+  bottomSeedTeamName,
+}: {
+  winner: Winner;
+  topSeedTeamName: NhlTeamName;
+  bottomSeedTeamName: NhlTeamName;
+}) {
+  if (winner === "TOP") {
+    return topSeedTeamName;
+  }
+  if (winner === "BOTTOM") {
+    return bottomSeedTeamName;
+  }
+  return null;
 }
 
 function SeriesItemSkeletonLoader() {
@@ -711,6 +585,46 @@ function SeriesItemSkeletonLoader() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SeriesItemStateBadge({ state }: { state: PredictionState }) {
+  return (
+    <div className="md:text-md flex justify-center text-center">
+      {state === "prediction-can-be-made" && (
+        <div className="flex items-center gap-2 rounded-full bg-blue-200 px-4 py-2 text-slate-800">
+          <FontAwesomeIcon icon={faClock} className="aspect-square h-6" />
+          <span className="font-semibold">Series not started</span>
+        </div>
+      )}
+      {state === "prediction-locked-in" && (
+        <div className="flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-slate-800">
+          <FontAwesomeIcon icon={faLock} className="aspect-square h-6" />
+          <span className="font-semibold">Series in progress</span>
+        </div>
+      )}
+      {state === "prediction-correct-no-bonus" && (
+        <div className="flex items-center gap-2 rounded-full bg-green-300 px-4 py-2 text-slate-800">
+          <FontAwesomeIcon icon={faSquareCheck} className="aspect-square h-6" />
+          <span className="font-semibold">Correct winner</span>
+        </div>
+      )}
+      {state === "prediction-correct-with-bonus" && (
+        <div className="relative flex items-center gap-2 rounded-full bg-green-300 px-4 py-2 text-slate-800">
+          <FontAwesomeIcon icon={faSquareCheck} className="aspect-square h-6" />
+          <span className="font-semibold">Correct winner</span>
+          <span className="absolute right-0 top-0 -translate-y-1/2 translate-x-1/2 rotate-12 rounded-full bg-yellow-300 px-2 py-1 text-sm">
+            +1 Bonus
+          </span>
+        </div>
+      )}
+      {state === "prediction-incorrect" && (
+        <div className="flex items-center gap-2 rounded-full bg-red-300 px-4 py-2 text-slate-800">
+          <FontAwesomeIcon icon={faSquareXmark} className="aspect-square h-6" />
+          <span className="font-semibold">Incorrect prediction</span>
+        </div>
+      )}
     </div>
   );
 }

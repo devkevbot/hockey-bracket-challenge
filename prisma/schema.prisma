@@ -22,10 +22,10 @@ enum Winner {
 }
 
 model Series {
-  id                      String @id @default(cuid())
+  id                      String  @id @default(cuid())
   round                   Int
   slug                    String
-  // Score is HOME WINS - AWAY WINS
+  // Score is TOP SEED WINS - BOT SEED WINS
   score                   String
   topSeedTeamName         String
   topSeedTeamNameShort    String
@@ -33,7 +33,8 @@ model Series {
   bottomSeedTeamName      String
   bottomSeedTeamNameShort String
   bottomSeedWins          Int
-  winner                  Winner @default(UNKNOWN)
+  winner                  Winner  @default(UNKNOWN)
+  currGameStartTime       String?
 
   @@unique([slug])
 }
