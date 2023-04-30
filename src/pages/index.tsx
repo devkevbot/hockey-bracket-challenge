@@ -165,7 +165,7 @@ function RoundsList({ data }: { data: PlayoffsData }) {
           <li>
             {" "}
             <span className="rounded-full bg-slate-500 px-2 py-1 font-semibold">
-              1 point
+              2 points
             </span>{" "}
             for predicting both the series winner and length
           </li>
