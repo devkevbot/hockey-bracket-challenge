@@ -3,7 +3,6 @@ import Head from "next/head";
 import { signIn, useSession } from "next-auth/react";
 import { type RouterInputs, api } from "~/utils/api";
 import { type InferGetStaticPropsType } from "next";
-import { z } from "zod";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faSquareCheck,
@@ -17,68 +16,17 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { toast } from "react-toastify";
 import Image from "next/image";
-
-const WINS_REQUIRED_IN_SERIES = 4;
+import { fetchPlayoffData } from "~/server/api/external/nhl";
+import { WINS_REQUIRED_IN_SERIES, type NhlTeamName } from "~/globals";
+import { upsertSeries } from "~/server/db/series";
 
 export async function getStaticProps() {
-  const response = await fetch(
-    "https://statsapi.web.nhl.com/api/v1/tournaments/playoffs?expand=round.series,schedule.game.seriesSummary&season=20222023"
-  );
-
-  const NhlApiSchema = z.object({
-    defaultRound: z.number(),
-    rounds: z.array(
-      z.object({
-        names: z.object({
-          name: z.string(),
-          shortName: z.string(),
-        }),
-        number: z.number(),
-        series: z.array(
-          z.object({
-            names: z.object({
-              matchupName: z.string(),
-              matchupShortName: z.string(),
-              teamAbbreviationA: z.string(),
-              teamAbbreviationB: z.string(),
-              seriesSlug: z.coerce.string(),
-            }),
-            currentGame: z.object({
-              seriesSummary: z.object({
-                gameLabel: z.string(),
-                gameTime: z.string().datetime().optional(),
-                necessary: z.coerce.boolean(),
-                seriesStatus: z.string().optional(),
-                seriesStatusShort: z.string().optional(),
-              }),
-            }),
-            matchupTeams: z
-              .array(
-                z.object({
-                  team: z.object({
-                    name: z.enum(NHL_TEAM_NAMES),
-                  }),
-                  seed: z.object({
-                    type: z.string(),
-                    isTop: z.boolean(),
-                  }),
-                  seriesRecord: z.object({
-                    wins: z.number().min(0).max(WINS_REQUIRED_IN_SERIES),
-                    losses: z.number().min(0).max(WINS_REQUIRED_IN_SERIES),
-                  }),
-                })
-              )
-              .optional(),
-          })
-        ),
-      })
-    ),
-  });
-
-  const result = NhlApiSchema.safeParse(await response.json());
+  const result = await fetchPlayoffData();
   if (!result.success) {
     console.error(result.error);
   }
+
+  await upsertSeries(result);
 
   return {
     props: {
@@ -263,27 +211,6 @@ function SeriesList({ data }: { data: PlayoffSeries }) {
   );
 }
 
-const NHL_TEAM_NAMES = [
-  "Boston Bruins",
-  "Florida Panthers",
-  "Carolina Hurricanes",
-  "New York Islanders",
-  "New Jersey Devils",
-  "New York Rangers",
-  "Toronto Maple Leafs",
-  "Tampa Bay Lightning",
-  "Vegas Golden Knights",
-  "Winnipeg Jets",
-  "Edmonton Oilers",
-  "Los Angeles Kings",
-  "Colorado Avalanche",
-  "Seattle Kraken",
-  "Dallas Stars",
-  "Minnesota Wild",
-] as const;
-
-type NhlTeamName = (typeof NHL_TEAM_NAMES)[number];
-
 const teamNameToBorderColor: Record<NhlTeamName, string> = {
   ["Boston Bruins"]: "border-t-[#FFB81C]",
   ["Florida Panthers"]: "border-t-[#C8102E]",
@@ -388,7 +315,7 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
 
   const predictedWinnerBgColor = predicted.winner
     ? teamNameToBgColor[predicted.winner.name]
-    : "bg-black";
+    : "bg-sky-700";
 
   const actualWinnerBorderColor = actual.winner
     ? teamNameToBorderColor[actual.winner.name]
@@ -458,7 +385,9 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
           disabled={seriesProgression !== "series-not-started"}
         >
           <option disabled className="hidden" value="no-prediction">
-            Choose prediction
+            {seriesProgression === "series-not-started" && "Choose prediction"}
+            {seriesProgression !== "series-not-started" &&
+              "No prediction available"}
           </option>
           <optgroup label={`${topSeed.team.name} win`}></optgroup>
           <option value="4-0">4-0 {topSeed.team.name}</option>
@@ -488,7 +417,7 @@ function SeriesItem({ data }: { data: PlayoffSeries[number] }) {
         {predictionOutcome === "prediction-not-made" && (
           <div className="flex items-center gap-2 rounded-full bg-slate-300 px-4 py-2 text-slate-800">
             <FontAwesomeIcon icon={faMinus} className="aspect-square h-6" />
-            <span className="font-semibold">Prediction not made</span>
+            <span className="font-semibold">Series over</span>
           </div>
         )}
         {predictionOutcome === "prediction-exactly-correct" && (
@@ -602,16 +531,13 @@ function getPredictionResult({
   }
 
   // Locked: if the series has started, the user cannot change their prediction.
-  if (
-    predictedScore !== "no-prediction" &&
-    seriesProgression === "series-in-progress"
-  ) {
+  if (seriesProgression === "series-in-progress") {
     return seriesProgression;
   }
 
   if (
     predictedScore === "no-prediction" &&
-    seriesProgression === "series-in-progress"
+    seriesProgression === "series-finished"
   ) {
     return "prediction-not-made";
   }

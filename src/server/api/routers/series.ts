@@ -7,7 +7,6 @@ export const seriesRouter = createTRPCRouter({
     .query(({ ctx, input }) => {
       return ctx.prisma.series.findMany({
         where: { round: input.round },
-        select: { id: true, round: true, slug: true },
       });
     }),
 });

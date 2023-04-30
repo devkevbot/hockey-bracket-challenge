@@ -15,10 +15,27 @@ datasource db {
   relationMode = "prisma"
 }
 
+enum Winner {
+  TOP
+  BOTTOM
+  UNKNOWN
+}
+
 model Series {
-  id    String @id @default(cuid())
-  round Int
-  slug  String @default(cuid())
+  id                      String @id @default(cuid())
+  round                   Int
+  slug                    String
+  // Score is HOME WINS - AWAY WINS
+  score                   String
+  topSeedTeamName         String
+  topSeedTeamNameShort    String
+  topSeedWins             Int
+  bottomSeedTeamName      String
+  bottomSeedTeamNameShort String
+  bottomSeedWins          Int
+  winner                  Winner @default(UNKNOWN)
+
+  @@unique([slug])
 }
 
 model Prediction {

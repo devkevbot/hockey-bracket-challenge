@@ -1,14 +1,8 @@
 import { prisma } from "../src/server/db";
-import { roundOneSeries } from "./roundOne";
 
+// eslint-disable-next-line @typescript-eslint/require-await
 async function main() {
-  await prisma.account.deleteMany();
-  await prisma.prediction.deleteMany();
-  await prisma.series.deleteMany();
-
-  for await (const series of roundOneSeries) {
-    await prisma.series.create(series);
-  }
+  console.log("Nothing to seed");
 }
 
 main()
