@@ -607,13 +607,13 @@ function SeriesItemStateBadge({ state }: { state: PredictionState }) {
       {state === "prediction-correct-no-bonus" && (
         <div className="flex items-center gap-2 rounded-full bg-green-300 px-4 py-2 text-slate-800">
           <FontAwesomeIcon icon={faSquareCheck} className="aspect-square h-6" />
-          <span className="font-semibold">Correct winner</span>
+          <span className="font-semibold">Correct</span>
         </div>
       )}
       {state === "prediction-correct-with-bonus" && (
         <div className="relative flex items-center gap-2 rounded-full bg-green-300 px-4 py-2 text-slate-800">
           <FontAwesomeIcon icon={faSquareCheck} className="aspect-square h-6" />
-          <span className="font-semibold">Correct winner</span>
+          <span className="font-semibold">Correct</span>
           <span className="absolute right-0 top-0 -translate-y-1/2 translate-x-1/2 rotate-12 rounded-full bg-yellow-300 px-2 py-1 text-sm">
             +1 Bonus
           </span>
@@ -622,7 +622,7 @@ function SeriesItemStateBadge({ state }: { state: PredictionState }) {
       {state === "prediction-incorrect" && (
         <div className="flex items-center gap-2 rounded-full bg-red-300 px-4 py-2 text-slate-800">
           <FontAwesomeIcon icon={faSquareXmark} className="aspect-square h-6" />
-          <span className="font-semibold">Incorrect prediction</span>
+          <span className="font-semibold">Incorrect</span>
         </div>
       )}
     </div>
