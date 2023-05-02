@@ -15,8 +15,6 @@ import Head from "next/head";
 import Image from "next/image";
 import { toast } from "react-toastify";
 import {
-  BOTTOM_SEED_SERIES_WIN_SCORES,
-  TOP_SEED_SERIES_WIN_SCORES,
   WINS_REQUIRED_IN_SERIES,
   type NhlTeamName,
   type SeriesPossibleScore,
@@ -262,6 +260,31 @@ const teamNameToBgColor: Record<NhlTeamName, string> = {
   ["Minnesota Wild"]: "bg-[#154734]",
 };
 
+// This exists as a convenience for users; Users predictions are recorded in
+// such a way that the predicted score is ordered, i.e. 4-3 vs 3-4, but we want
+// to visually show the left number in the score as the winning team's score,
+// regardless if the user picked the top or bottom seed to win the series.
+const SERIES_WIN_LABELS = [
+  `${WINS_REQUIRED_IN_SERIES}-0`,
+  `${WINS_REQUIRED_IN_SERIES}-1`,
+  `${WINS_REQUIRED_IN_SERIES}-2`,
+  `${WINS_REQUIRED_IN_SERIES}-3`,
+] as const;
+
+const TOP_SEED_SERIES_WIN_SCORES = [
+  `${WINS_REQUIRED_IN_SERIES}-0`,
+  `${WINS_REQUIRED_IN_SERIES}-1`,
+  `${WINS_REQUIRED_IN_SERIES}-2`,
+  `${WINS_REQUIRED_IN_SERIES}-3`,
+] as const;
+
+const BOTTOM_SEED_SERIES_WIN_SCORES = [
+  `0-${WINS_REQUIRED_IN_SERIES}`,
+  `1-${WINS_REQUIRED_IN_SERIES}`,
+  `2-${WINS_REQUIRED_IN_SERIES}`,
+  `3-${WINS_REQUIRED_IN_SERIES}`,
+] as const;
+
 type PredictionGetByRoundOutput =
   RouterOutputs["prediction"]["getByPlayoffRound"][number];
 type SeriesGetByRoundOutput =
@@ -360,7 +383,7 @@ function SeriesItem({
         <select
           id={series.slug}
           className={`w-full cursor-pointer rounded-full px-5 py-3 text-center font-semibold text-white drop-shadow disabled:cursor-not-allowed ${predictedWinnerBgColor}`}
-          value={prediction?.score}
+          value={prediction?.score || "no-prediction"}
           onChange={(event) => {
             onChangePrediction({
               slug: series.slug,
@@ -372,21 +395,21 @@ function SeriesItem({
           <option disabled className="hidden" value="no-prediction">
             {predictionState === "prediction-can-be-made" &&
               "Choose prediction"}
-            {predictionState !== "prediction-locked-in" &&
-              "Prediction unavailable"}
+            {predictionState !== "prediction-can-be-made" &&
+              "Prediction locked"}
           </option>
           <optgroup label={`${series.topSeedTeamName} win`}></optgroup>
-          {TOP_SEED_SERIES_WIN_SCORES.map((score) => {
+          {SERIES_WIN_LABELS.map((score, idx) => {
             return (
-              <option key={score} value={score}>
+              <option key={score} value={TOP_SEED_SERIES_WIN_SCORES[idx]}>
                 {score} {series.topSeedTeamName}
               </option>
             );
           })}
           <optgroup label={`${series.bottomSeedTeamName} win`}></optgroup>
-          {BOTTOM_SEED_SERIES_WIN_SCORES.map((score) => {
+          {SERIES_WIN_LABELS.map((score, idx) => {
             return (
-              <option key={score} value={score}>
+              <option key={score} value={BOTTOM_SEED_SERIES_WIN_SCORES[idx]}>
                 {score} {series.bottomSeedTeamName}
               </option>
             );

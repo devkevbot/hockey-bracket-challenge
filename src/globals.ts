@@ -20,20 +20,6 @@ export type NhlTeamName = (typeof NHL_TEAM_NAMES)[number];
 
 export const WINS_REQUIRED_IN_SERIES = 4;
 
-export const TOP_SEED_SERIES_WIN_SCORES = [
-  `${WINS_REQUIRED_IN_SERIES}-0`,
-  `${WINS_REQUIRED_IN_SERIES}-1`,
-  `${WINS_REQUIRED_IN_SERIES}-2`,
-  `${WINS_REQUIRED_IN_SERIES}-3`,
-] as const;
-
-export const BOTTOM_SEED_SERIES_WIN_SCORES = [
-  `0-${WINS_REQUIRED_IN_SERIES}`,
-  `1-${WINS_REQUIRED_IN_SERIES}`,
-  `2-${WINS_REQUIRED_IN_SERIES}`,
-  `3-${WINS_REQUIRED_IN_SERIES}`,
-] as const;
-
 export const SERIES_WIN_SCORES = [
   `${WINS_REQUIRED_IN_SERIES}-0`,
   `${WINS_REQUIRED_IN_SERIES}-1`,
