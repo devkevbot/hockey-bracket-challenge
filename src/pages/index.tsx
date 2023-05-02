@@ -494,10 +494,34 @@ function seriesWinnerCorrect({
   actualScore: SeriesPossibleScore;
   predScore?: SeriesWinScore;
 }): boolean {
-  if (!predScore) return false;
-  return actualScore === predScore;
+  const predicted = parseScoreString(predScore);
+  if (!predicted) {
+    return false;
+  }
+
+  const actual = parseScoreString(actualScore);
+  if (!actual) {
+    return false;
+  }
+
+  const [predTopWins, predBotWins] = predicted;
+  const [actualTopWins, actualBotWins] = actual;
+
+  // If top won
+  if (actualTopWins === WINS_REQUIRED_IN_SERIES) {
+    return predTopWins === WINS_REQUIRED_IN_SERIES;
+  }
+
+  // If bot won
+  if (actualBotWins === WINS_REQUIRED_IN_SERIES) {
+    return predBotWins === WINS_REQUIRED_IN_SERIES;
+  }
+
+  return false;
 }
 
+// This result of this function only matters when the user has also predicted
+// the correct winner.
 function seriesLengthCorrect({
   actualScore,
   predScore,
@@ -515,9 +539,9 @@ function seriesLengthCorrect({
     return false;
   }
 
-  const [predTop, predBot] = predicted;
-  const [actualTop, actualBot] = actual;
-  return predTop === actualTop && predBot === actualBot;
+  const [predTopWins, predBotWins] = predicted;
+  const [actualTopWins, actualBotWins] = actual;
+  return predTopWins === actualTopWins && predBotWins === actualBotWins;
 }
 
 function parseScoreString(score?: string) {
@@ -549,10 +573,10 @@ function getPredictedWinnerName({
     return false;
   }
 
-  const [predTop, predBot] = predicted;
-  if (predTop > predBot) {
+  const [predTopWins, predBotWins] = predicted;
+  if (predTopWins > predBotWins) {
     return topSeedTeamName;
-  } else if (predBot > predTop) {
+  } else if (predBotWins > predTopWins) {
     return bottomSeedTeamName;
   }
   return null;
