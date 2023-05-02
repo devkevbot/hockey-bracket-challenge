@@ -38,7 +38,7 @@ export async function getStaticProps() {
     props: {
       playoffsData: result.success ? result.data : null,
     },
-    revalidate: 60 * 15,
+    revalidate: 60,
   };
 }
 
