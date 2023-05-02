@@ -56,5 +56,25 @@ export async function fetchPlayoffData() {
     ),
   });
 
-  return nhlApiSchema.safeParse(await response.json());
+  const res = nhlApiSchema.safeParse(await response.json());
+  if (!res.success) {
+    console.error(res.error);
+    return null;
+  }
+
+  const sanitizedRounds = res.data.rounds.map((round) => {
+    const sanitizedSeries = round.series.filter((series) => {
+      return series.names.seriesSlug && series.names.seriesSlug !== "undefined";
+    });
+
+    return {
+      ...round,
+      series: sanitizedSeries,
+    };
+  });
+
+  return {
+    defaultRound: res.data.defaultRound,
+    rounds: sanitizedRounds,
+  };
 }

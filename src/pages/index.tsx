@@ -28,15 +28,10 @@ import { api, type RouterInputs, type RouterOutputs } from "~/utils/api";
 
 export async function getStaticProps() {
   const result = await fetchPlayoffData();
-  if (!result.success) {
-    console.error(result.error);
-  }
-
   await upsertSeries(result);
-
   return {
     props: {
-      playoffsData: result.success ? result.data : null,
+      playoffsData: result,
     },
     revalidate: 60,
   };
@@ -147,8 +142,6 @@ export default Home;
 type PlayoffsData = Exclude<StaticProps["playoffsData"], null>;
 
 function RoundsList({ data }: { data: PlayoffsData }) {
-  const currentRound = data.defaultRound;
-
   const roundsInDescOrd = data.rounds.sort((a, b) => {
     if (a.number > b.number) return -1;
     if (a.number < b.number) return 1;
@@ -185,7 +178,7 @@ function RoundsList({ data }: { data: PlayoffsData }) {
         </ul>
       </div>
       {roundsInDescOrd.map((round, index) => {
-        if (round.number > currentRound) return null;
+        if (round.series.length === 0) return;
         return <RoundItem data={round} key={index} />;
       })}
     </div>

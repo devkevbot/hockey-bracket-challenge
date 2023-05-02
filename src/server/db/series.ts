@@ -1,74 +1,78 @@
 import { type Winner } from "@prisma/client";
 import { type fetchPlayoffData } from "../api/external/nhl";
 import { prisma } from "../db";
+import { WINS_REQUIRED_IN_SERIES } from "~/globals";
 
 export async function upsertSeries(
   result: Awaited<ReturnType<typeof fetchPlayoffData>>
 ) {
-  if (!result.success) {
+  if (!result) {
     return;
   }
 
-  const defaultRound = result.data.defaultRound;
-  const currRound = result.data.rounds.find(
-    (round) => round.number === defaultRound
-  );
-  if (!currRound) {
+  if (result.rounds.length === 0) {
+    console.error("expected to find at least one playoffs series");
     return;
   }
 
-  const currRoundSlugs = currRound.series.map(
-    (series) => series.names.seriesSlug
-  );
-  if (currRoundSlugs.length === 0) {
+  const seriesToUpsert = result.rounds
+    .map((round) => {
+      // Relying on the invariant that any series without a proper slug also has malformed data.
+      const nonEmptySeries = round.series.filter(
+        (series) =>
+          series.names.seriesSlug && series.names.seriesSlug !== "undefined"
+      );
+      return nonEmptySeries.map((series) => ({
+        ...series,
+        roundNumber: round.number,
+      }));
+    })
+    .flat();
+  if (seriesToUpsert.length === 0) {
     return;
   }
 
-  for await (const slug of currRoundSlugs) {
-    const series = currRound?.series.find(
-      (series) => series.names.seriesSlug === slug
-    );
-    const topSeed = series?.matchupTeams?.find((team) => team.seed.isTop);
-    const bottomSeed = series?.matchupTeams?.find((team) => !team.seed.isTop);
+  for await (const series of seriesToUpsert) {
+    const top = series.matchupTeams?.find((team) => team.seed.isTop);
+    const bot = series.matchupTeams?.find((team) => !team.seed.isTop);
+    if (!top || !bot) {
+      return;
+    }
 
     let winner: Winner = "UNKNOWN";
-    if (topSeed?.seriesRecord.wins == 4) {
+    if (top.seriesRecord.wins === WINS_REQUIRED_IN_SERIES) {
       winner = "TOP";
-    } else if (bottomSeed?.seriesRecord.wins === 4) {
+    } else if (bot.seriesRecord.wins === WINS_REQUIRED_IN_SERIES) {
       winner = "BOTTOM";
     }
 
+    const score = `${top.seriesRecord.wins}-${bot.seriesRecord.wins}`;
+
     await prisma.series.upsert({
-      where: {
-        slug,
-      },
+      where: { slug: series.names.seriesSlug },
       update: {
-        score: `${topSeed?.seriesRecord.wins ?? 0}-${
-          bottomSeed?.seriesRecord.wins ?? 0
-        }`,
-        topSeedWins: topSeed?.seriesRecord.wins,
-        topSeedTeamName: topSeed?.team.name,
-        topSeedTeamNameShort: series?.names.teamAbbreviationA,
-        bottomSeedWins: bottomSeed?.seriesRecord.wins,
-        bottomSeedTeamName: bottomSeed?.team.name,
-        bottomSeedTeamNameShort: series?.names.teamAbbreviationB,
+        score,
         winner,
-        currGameStartTime: series?.currentGame.seriesSummary.gameTime,
+        topSeedWins: top.seriesRecord.wins,
+        topSeedTeamName: top.team.name,
+        topSeedTeamNameShort: series.names.teamAbbreviationA,
+        bottomSeedWins: bot.seriesRecord.wins,
+        bottomSeedTeamName: bot.team.name,
+        bottomSeedTeamNameShort: series.names.teamAbbreviationB,
+        currGameStartTime: series.currentGame.seriesSummary.gameTime,
       },
       create: {
-        round: currRound?.number ?? -1,
-        slug,
-        score: `${topSeed?.seriesRecord.wins ?? 0}-${
-          bottomSeed?.seriesRecord.wins ?? 0
-        }`,
-        topSeedWins: topSeed?.seriesRecord.wins || 0,
-        topSeedTeamName: topSeed?.team.name || "",
-        topSeedTeamNameShort: series?.names.teamAbbreviationA || "",
-        bottomSeedWins: bottomSeed?.seriesRecord.wins || 0,
-        bottomSeedTeamName: bottomSeed?.team.name || "",
-        bottomSeedTeamNameShort: series?.names.teamAbbreviationB || "",
+        slug: series.names.seriesSlug,
+        round: series.roundNumber,
+        score,
         winner,
-        currGameStartTime: series?.currentGame.seriesSummary.gameTime,
+        topSeedWins: top.seriesRecord.wins,
+        topSeedTeamName: top.team.name,
+        topSeedTeamNameShort: series.names.teamAbbreviationA,
+        bottomSeedWins: bot.seriesRecord.wins,
+        bottomSeedTeamName: bot.team.name,
+        bottomSeedTeamNameShort: series.names.teamAbbreviationB,
+        currGameStartTime: series.currentGame.seriesSummary.gameTime,
       },
     });
   }
